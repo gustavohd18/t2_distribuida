@@ -29,6 +29,12 @@ void handleConnectionSocket(Socket client) {
             client.write('Solicitacao de arquivos atendidas');
         } 
         break; 
+
+        case 'DOWNLOAD': { 
+          // aqui onde o nodo envia uma mensagem com o nome do arquivo que ele quer e enviamos as informacoes do peers com aquele arquivo para download
+            client.write('Solicitacao de arquivos atendidas');
+        } 
+        break; 
    
         default: { 
            client.write('Nada encontrado com essa solicitacao: ${message}');  
