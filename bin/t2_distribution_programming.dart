@@ -72,19 +72,19 @@ void main(List<String> args) async {
     final ip = InternetAddress.anyIPv4;
     final server = await ServerSocket.bind(ip, port);
     var supernode = SuperNode(ip.address);
-    print('Supernodo ip $ip');
+    print('Supernodo ip $ip e porta $port');
     server.listen((client) {
       supernode.handleConnectionSocket(client);
     });
   } else if (args[0] == 'nodo') {
     if (args.length < 3) {
       print(
-          'Formato [<nodo ou supernodo> <porta> <ip do supernodo> <path dos files>]');
+          'Formato [<nodo ou supernodo> <porta mesma do supernodo> <ip do supernodo> <path dos files>]');
       return;
     }
 
     // connect to the socket server
-    final socket = await Socket.connect('0.0.0.0', port);
+    final socket = await Socket.connect(args[2], port);
     print('Connected to: ${socket.remoteAddress.address}:${socket.remotePort}');
 
     // listen for responses from the server
