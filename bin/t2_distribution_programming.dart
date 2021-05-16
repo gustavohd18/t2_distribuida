@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:t2_distribution_programming/SuperNode.dart';
+import 'package:t2_distribution_programming/supernodo/SuperNode.dart';
 import 'package:t2_distribution_programming/t2_distribution_programming.dart'
     as t2_distribution_programming;
 /*
@@ -29,26 +29,22 @@ Future<void> sendPackage() {
   });
 }
 
-Future<void> receivePackage() {
+Future<void> receivePackageMulticast(SuperNode supernode) {
   InternetAddress multicastAddress = new InternetAddress("239.10.10.100");
   int multicastPort = 4545;
   RawDatagramSocket.bind(InternetAddress.ANY_IP_V4, multicastPort)
       .then((RawDatagramSocket socket) {
-    print('Datagram socket ready to receive');
+    print('Supernodo ${supernode.name} ouvindo no multicast');
     print('${socket.address.address}:${socket.port}');
 
     socket.joinMulticast(multicastAddress);
-    print('Multicast group joined');
+    print('Supernodo conectado');
 
     socket.listen((RawSocketEvent e) {
       Datagram d = socket.receive();
       if (d == null) return;
-
       String message = new String.fromCharCodes(d.data).trim();
-      // aqui vai os if ou swith para validar
-      // request de arquivos disponivel e request do peer que tem o arquivo para
-      //criar a conexao com
-      print('Datagram from ${d.address.address}:${d.port}: ${message}');
+      //supernode.handleWithMulticast(message);
     });
   });
 }
@@ -107,7 +103,7 @@ void main(List<String> args) async {
         socket.destroy();
       },
     );
-    await sendMessage(socket, 'FILES');
+    await sendMessage(socket, 'REQUEST_LIST_FILES');
   }
   //tipo node ou supernodo, porta sempre tem que passar indiferente se for tipo node tem que validar o ip para se conectar com o supernodo
 
