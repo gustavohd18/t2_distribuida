@@ -1,5 +1,5 @@
 import 'dart:typed_data';
-
+import 'package:udp/udp.dart';
 import 'package:t2_distribution_programming/supernodo/SuperNode.dart';
 import 'package:t2_distribution_programming/t2_distribution_programming.dart'
     as t2_distribution_programming;
@@ -11,42 +11,17 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:math';
 
-Future<void> sendPackage() {
-  InternetAddress multicastAddress = new InternetAddress('239.10.10.100');
-  int multicastPort = 4545;
-  Random rng = new Random();
-  RawDatagramSocket.bind(InternetAddress.ANY_IP_V4, 0)
-      .then((RawDatagramSocket s) {
-    print("UDP Socket ready to send to group "
-        "${multicastAddress.address}:${multicastPort}");
+Future<void> receivePackageMulticast(SuperNode supernode) async {
+  // MULTICAST
+  var multicastEndpoint =
+      Endpoint.multicast(InternetAddress("239.1.2.3"), port: Port(54321));
+  var receiver = await UDP.bind(multicastEndpoint);
 
-    new Timer.periodic(new Duration(seconds: 1), (Timer t) {
-      //Send a random number out every second
-      String msg = '${rng.nextInt(1000)}';
-      stdout.write("Sending $msg  \r");
-      s.send('$msg\n'.codeUnits, multicastAddress, multicastPort);
+    await receiver.listen((datagram) {
+      if (datagram != null) {
+      supernode.handleConnectionSupernodo(datagram);
+      }
     });
-  });
-}
-
-Future<void> receivePackageMulticast(SuperNode supernode) {
-  InternetAddress multicastAddress = new InternetAddress("239.10.10.100");
-  int multicastPort = 4545;
-  RawDatagramSocket.bind(InternetAddress.ANY_IP_V4, multicastPort)
-      .then((RawDatagramSocket socket) {
-    print('Supernodo ${supernode.name} ouvindo no multicast');
-    print('${socket.address.address}:${socket.port}');
-
-    socket.joinMulticast(multicastAddress);
-    print('Supernodo conectado');
-
-    socket.listen((RawSocketEvent e) {
-      Datagram d = socket.receive();
-      if (d == null) return;
-      String message = new String.fromCharCodes(d.data).trim();
-      //supernode.handleWithMulticast(message);
-    });
-  });
 }
 
 //nodo
@@ -70,8 +45,10 @@ void main(List<String> args) async {
     var supernode = SuperNode(ip.address);
     print('Supernodo ip $ip e porta $port');
     server.listen((client) {
-      supernode.handleConnectionSocket(client);
+      supernode.handleConnectionNodo(client);
     });
+
+    await receivePackageMulticast(supernode);
   } else if (args[0] == 'nodo') {
     if (args.length < 3) {
       print(
