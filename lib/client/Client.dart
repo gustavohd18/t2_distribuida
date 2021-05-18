@@ -1,6 +1,8 @@
 import 'dart:io';
-
+import 'dart:convert';
 import 'dart:typed_data';
+
+import 'package:t2_distribution_programming/client/MessageClient.dart';
 
 class Client {
   final String id;
@@ -32,8 +34,10 @@ class Client {
     );
   }
 
-  Future<void> sendMessageStringToSupernodo(String message) async {
-    print('Nodo: $message');
-    socketClient.write(message);
+  Future<void> sendMessageStringToSupernodo(MessageClient messageClient) async {
+    //vamos usar json nos objetos para envio
+    var encodedMessage = jsonEncode(messageClient);
+    print('Nodo: $encodedMessage');
+    socketClient.write(encodedMessage);
   }
 }

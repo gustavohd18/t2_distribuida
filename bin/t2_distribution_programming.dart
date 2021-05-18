@@ -1,4 +1,5 @@
 import 'package:t2_distribution_programming/client/Client.dart';
+import 'package:t2_distribution_programming/client/MessageClient.dart';
 import 'package:t2_distribution_programming/server/Server.dart';
 import 'dart:io';
 
@@ -17,6 +18,8 @@ void main(List<String> args) async {
     print('Supernodo ip $ip e porta $port');
     await supernode.listenerServerSocket();
     await supernode.listenerMulticast();
+    // sempre que um supernodo entra na rede ele envia uma msg do tipo join para o  contador global inclui ele mesmo
+    await supernode.sendPackageToMulticast('JOIN');
   } else if (args[0] == 'nodo') {
     if (args.length < 3) {
       print(
@@ -29,6 +32,9 @@ void main(List<String> args) async {
     final client = Client('same', socket, '0.0.0.0', 8089);
     await client.listenerSupernodo();
     //exemplo por enquanto envia um request mas isso estara num listener
-    await client.sendMessageStringToSupernodo('REQUEST_LIST_FILES');
+    final messageExample =
+
+        MessageClient('REQUEST_LIST_FILES', ['test', 'listadestring']);
+    await client.sendMessageStringToSupernodo(messageExample);
   }
 }
