@@ -30,19 +30,19 @@ void main(List<String> args) async {
 
     final socket = await Socket.connect(args[2], port);
     // precisa adicionar parametro por linha de comando para o id e o proprio ip e propria porta disponivel
-    final files = <String>['file1hash', 'file2hash'];
-    final client = Client('same', socket, '0.0.0.0', 8089);
+    final files = <String>['disneytorrent', 'netflixfilmetorrent'];
+    final client = Client('same1', socket, '0.0.0.0', 8089);
     await client.listenerSupernodo();
     //exemplo envio dos dados do client
     final clientData =
         ClientToServer(client.id, client.ip, client.availablePort, files);
-        
+
     final messageDataClient = MessageClient('JOIN', clientData);
 
     await client.sendMessageStringToSupernodo(messageDataClient);
     //exemplo por enquanto envia um request mas isso estara num listener
     final messageExample =
-        MessageClient('REQUEST_LIST_FILES', ['test', 'listadestring']);
+        MessageClient('REQUEST_LIST_FILES', ['test', 'streaming']);
     await client.sendMessageStringToSupernodo(messageExample);
   }
 }

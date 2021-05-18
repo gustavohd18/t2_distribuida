@@ -13,20 +13,39 @@ class Client {
   Client(this.id, this.socketClient, this.ip, this.availablePort);
 
   Future<void> listenerSupernodo() async {
-    print('Conetado com o supernodo: ${socketClient.remoteAddress.address}:${socketClient.remotePort}');
+    print(
+        'Conetado com o supernodo: ${socketClient.remoteAddress.address}:${socketClient.remotePort}');
 
     socketClient.listen(
       (Uint8List data) {
-        //Precisa validar se é uma mensagem de texto ou sera um dado e mapear
-        final serverResponse = String.fromCharCodes(data);
-        print('supernodo: $serverResponse');
-      },
+        final object = String.fromCharCodes(data);
+        Map<String, dynamic> decodedMessage = jsonDecode(object);
+        print(object);
+        final messageObject =
+            MessageClient(decodedMessage['message'], decodedMessage['data']);
 
+        switch (messageObject.message) {
+          case 'RESPONSE_LIST':
+            {
+              final list = messageObject.data.cast<String>();
+              print(list);
+            }
+            break;
+            
+          case 'REGISTER':
+            {
+              print("recebido o registro");
+            }
+            break;
+
+          default:
+            print('Nada mapeado');
+        }
+      },
       onError: (error) {
         print(error);
         socketClient.destroy();
       },
-
       onDone: () {
         print('Server left.');
         socketClient.destroy();

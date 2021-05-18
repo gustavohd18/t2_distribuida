@@ -1,14 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'dart:typed_data';
 import 'dart:collection';
 import 'package:t2_distribution_programming/ClientToServer.dart';
-import 'package:t2_distribution_programming/client/Client.dart';
 import 'package:t2_distribution_programming/client/MessageClient.dart';
 import 'package:udp/udp.dart';
-
+import 'package:mutex/mutex.dart';
 import 'Messages.dart';
 
 class Server {
@@ -17,6 +15,7 @@ class Server {
   int current_total_supernodo = 0;
   final ServerSocket socketServer;
   List<Socket> clients = [];
+  final m = ReadWriteMutex();
   //lista que é preechida com arquivos enviados pelos multicasts somente com arquivos
   //e o identificador do client para solicitacao dos  demais dados no caso de dowload
   HashMap<String, List<String>> peersFilesFromSuperNodos = HashMap();
@@ -63,9 +62,21 @@ class Server {
         switch (messageObject.message) {
           case 'REQUEST_LIST_FILES':
             {
-              await sendPackageToMulticast('REQUEST_FILES_PEERS');
-              print('data enviado do nodo ${messageObject.data}');
-              client.write('Solicitacao de arquivos atendidas');
+              //nao tem só 1 supernodo na rede
+              if (total_supernodo > 1) {
+                await sendPackageToMulticast('REQUEST_FILES_PEERS');
+                //fazer outras coisas TODO
+                //await espera todos responderem
+                print('data enviado do nodo ${messageObject.data}');
+                client.write('Mandei a lista de geral');
+              } else {
+                //mandar minha propria lista de arquivos
+                final list = await getFiles();
+                final message = MessageClient('RESPONSE_LIST', list);
+                var encodedMessage = jsonEncode(message);
+                print(encodedMessage);
+               // client.write(encodedMessage);
+              }
             }
             break;
 
@@ -73,11 +84,19 @@ class Server {
             {
               //adiciona client para a lista de client converter os dados
               //precisa realizar o cast
-              T cast<T>(x) => x is T ? x : null;
-              final clientObject = cast<ClientToServer>(messageObject.data);
-              print('data enviado do nodo ${messageObject.data}');
+              final list = messageObject.data['files'].cast<String>();
+              final clientObject = ClientToServer(
+                messageObject.data['id'],
+                messageObject.data['ip'],
+                messageObject.data['availablePort'],
+                list,
+              );
+              print('data enviado do nodo ${messageObject.data['files']}');
               await addNodo(clientObject);
-              client.write('Nodo Registrado');
+              final message = MessageClient('REGISTER', []);
+              var encodedMessage = jsonEncode(message);
+              print(encodedMessage);
+              client.write(encodedMessage);
             }
             break;
 
@@ -114,6 +133,20 @@ class Server {
         client.close();
       },
     );
+  }
+
+  List<String> getFiles() {
+    //adicionar mutex para pegar da lista
+    // ignore: omit_local_variable_types
+    List<String> files = [];
+    for (var i = 0; i < clients_info.length; i++) {
+      var client = clients_info[i];
+      for (var j = 0; j < client.files.length; j++) {
+        files.add(client.files[j]);
+      }
+    }
+
+    return files;
   }
 
   Future<void> listenerMulticast() async {
@@ -158,40 +191,67 @@ class Server {
     }
   }
 
-  void addNodo(ClientToServer client) {
-    //adicionar semaforo ou mutex aqui
-    if (clients_info.isEmpty) {
-      print('Adicionei os dados do primeiro nodo');
-      clients_info.add(client);
-    } else {
-      if (!clients_info.contains(client)) {
-        print('Adicionei os dados do nodo');
+  void addNodo(ClientToServer client) async {
+    print("client $client");
+    await m.acquireWrite();
+    // No other locks (read or write) can be acquired until released
+    try {
+      // sessao critica
+      if (clients_info.isEmpty) {
+        print('Adicionei os dados do primeiro nodo');
         clients_info.add(client);
+      } else {
+        if (!clients_info.contains(client)) {
+          print('Adicionei os dados do nodo');
+          clients_info.add(client);
+        }
       }
+    } finally {
+      m.release();
     }
   }
 
-  void incrementTotalSupernodo() {
-    //adicionar semaforo ou mutex aqui
-    print('novo supernodo na rede');
-    total_supernodo++;
+  void incrementTotalSupernodo() async {
+    await m.acquireWrite();
+    try {
+      // sessao critica
+      print('novo supernodo na rede');
+      total_supernodo++;
+    } finally {
+      m.release();
+    }
   }
 
-  void decrementTotalSupernodo() {
-    //adicionar semaforo ou mutex aqui
-    print('menos supernodo na rede');
-    total_supernodo--;
+  void decrementTotalSupernodo() async {
+    await m.acquireWrite();
+    try {
+      // sessao critica
+      print('menos supernodo na rede');
+      total_supernodo--;
+    } finally {
+      m.release();
+    }
   }
 
-  void incrementCurrentSupernodos() {
-    //adicionar semaforo ou mutex aqui
-    print('Algum supernodo respondeu');
-    current_total_supernodo++;
+  void incrementCurrentSupernodos() async {
+    await m.acquireWrite();
+    try {
+      // sessao critica
+      print('Algum supernodo respondeu');
+      current_total_supernodo++;
+    } finally {
+      m.release();
+    }
   }
 
-  void decrementCurrentSupernodos() {
-    //adicionar semaforo ou mutex aqui
-    print('todos supernodos responderam');
-    current_total_supernodo--;
+  void decrementCurrentSupernodos() async {
+    await m.acquireWrite();
+    try {
+      // sessao critica
+      print('todos supernodos responderam');
+      current_total_supernodo = 0;
+    } finally {
+      m.release();
+    }
   }
 }
