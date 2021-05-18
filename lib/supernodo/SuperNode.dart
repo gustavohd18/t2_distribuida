@@ -9,12 +9,13 @@ import 'Messages.dart';
 
 class SuperNode {
   String name;
+  final ServerSocket socketServer;
   HashMap<String, String> peersFiles = HashMap();
   HashMap<String, String> peersFilesFromSuperNodos = HashMap();
-  SuperNode(this.name);
+  SuperNode(this.name, this.socketServer);
 
   void handleConnectionSupernodo(Datagram data) {
-    print("Cheguei no  handle do supernodo");
+    print('Cheguei no  handle do supernodo');
     print('datagrama vindo ${data.data}');
   }
 
@@ -36,7 +37,7 @@ class SuperNode {
 
           case 'REQUEST_PEER':
             {
-              client.write('Solicitacao de arquivos atendidas');
+              client.write('Solicitacao de peers atendidas');
             }
             break;
 
@@ -68,9 +69,28 @@ class SuperNode {
     );
   }
 
+  Future<void> listenerMulticast() async {
+    // MULTICAST
+    var multicastEndpoint =
+        Endpoint.multicast(InternetAddress('239.1.2.3'), port: Port(54321));
+    var receiver = await UDP.bind(multicastEndpoint);
+
+    await receiver.listen((datagram) {
+      if (datagram != null) {
+        handleConnectionSupernodo(datagram);
+      }
+    });
+  }
+
+  Future<void> listenerServerSocket() async {
+    await socketServer.listen((client) {
+      handleConnectionNodo(client);
+    });
+  }
+
   Future<void> sendPackageToMulticast(String message) async {
     var multicastEndpoint =
-        Endpoint.multicast(InternetAddress("239.1.2.3"), port: Port(54321));
+        Endpoint.multicast(InternetAddress('239.1.2.3'), port: Port(54321));
     var sender = await UDP.bind(Endpoint.any());
     await sender.send(message.codeUnits, multicastEndpoint);
   }
