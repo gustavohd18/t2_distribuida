@@ -7,13 +7,13 @@ import 'package:udp/udp.dart';
 
 import 'Messages.dart';
 
-class SuperNode {
+class Server {
   String name;
   final ServerSocket socketServer;
   List<Socket> clients = [];
   HashMap<String, String> peersFiles = HashMap();
   HashMap<String, String> peersFilesFromSuperNodos = HashMap();
-  SuperNode(this.name, this.socketServer);
+  Server(this.name, this.socketServer);
 
   void handleConnectionSupernodo(Datagram data) {
     print('Cheguei no  handle do supernodo');

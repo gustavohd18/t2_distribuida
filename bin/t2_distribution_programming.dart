@@ -1,5 +1,5 @@
 import 'package:t2_distribution_programming/client/Client.dart';
-import 'package:t2_distribution_programming/supernodo/SuperNode.dart';
+import 'package:t2_distribution_programming/server/Server.dart';
 import 'dart:io';
 
 void main(List<String> args) async {
@@ -13,7 +13,7 @@ void main(List<String> args) async {
   if (args[0] == 'supernodo') {
     final ip = InternetAddress.anyIPv4;
     final server = await ServerSocket.bind(ip, port);
-    var supernode = SuperNode(ip.address, server);
+    var supernode = Server(ip.address, server);
     print('Supernodo ip $ip e porta $port');
     await supernode.listenerServerSocket();
     await supernode.listenerMulticast();
