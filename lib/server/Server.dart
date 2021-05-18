@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:collection';
+import 'package:t2_distribution_programming/ClientToServer.dart';
 import 'package:t2_distribution_programming/client/Client.dart';
 import 'package:t2_distribution_programming/client/MessageClient.dart';
 import 'package:udp/udp.dart';
@@ -20,7 +21,7 @@ class Server {
   //e o identificador do client para solicitacao dos  demais dados no caso de dowload
   HashMap<String, List<String>> peersFilesFromSuperNodos = HashMap();
   //dados de cada usuario no supernodo inclui seu identificador e arquivos
-  List<Client> clients_info = [];
+  List<ClientToServer> clients_info = [];
   Server(this.name, this.socketServer);
 
   void handleConnectionSupernodo(Datagram data) {
@@ -71,7 +72,11 @@ class Server {
           case 'JOIN':
             {
               //adiciona client para a lista de client converter os dados
-              //await addNodo();
+              //precisa realizar o cast
+              T cast<T>(x) => x is T ? x : null;
+              final clientObject = cast<ClientToServer>(messageObject.data);
+              print('data enviado do nodo ${messageObject.data}');
+              await addNodo(clientObject);
               client.write('Nodo Registrado');
             }
             break;
@@ -90,7 +95,8 @@ class Server {
 
           default:
             {
-              client.write('Nada encontrado com essa solicitacao: ${messageObject.message}');
+              client.write(
+                  'Nada encontrado com essa solicitacao: ${messageObject.data}');
             }
             break;
         }
@@ -145,20 +151,20 @@ class Server {
       print('Adicionei o socket do primeiro nodo');
       clients.add(client);
     } else {
-      if (!clients.contains(clients)) {
+      if (!clients.contains(client)) {
         print('Adicionei o socket do nodo');
         clients.add(client);
       }
     }
   }
 
-  void addNodo(Client client) {
+  void addNodo(ClientToServer client) {
     //adicionar semaforo ou mutex aqui
     if (clients_info.isEmpty) {
       print('Adicionei os dados do primeiro nodo');
       clients_info.add(client);
     } else {
-      if (!clients_info.contains(clients)) {
+      if (!clients_info.contains(client)) {
         print('Adicionei os dados do nodo');
         clients_info.add(client);
       }
