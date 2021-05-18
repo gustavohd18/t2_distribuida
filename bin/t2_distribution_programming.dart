@@ -25,7 +25,7 @@ void main(List<String> args) async {
     }
 
     final socket = await Socket.connect(args[2], port);
-    // precisa adicionar parametro
+    // precisa adicionar parametro por linha de comando para o id e o proprio ip e propria porta disponivel
     final client = Client('same', socket, '0.0.0.0', 8089);
     await client.listenerSupernodo();
     //exemplo por enquanto envia um request mas isso estara num listener

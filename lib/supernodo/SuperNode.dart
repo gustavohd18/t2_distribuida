@@ -10,6 +10,7 @@ import 'Messages.dart';
 class SuperNode {
   String name;
   final ServerSocket socketServer;
+  List<Socket> clients = [];
   HashMap<String, String> peersFiles = HashMap();
   HashMap<String, String> peersFilesFromSuperNodos = HashMap();
   SuperNode(this.name, this.socketServer);
@@ -29,7 +30,6 @@ class SuperNode {
         switch (message) {
           case 'REQUEST_LIST_FILES':
             {
-              // mandar requisicao de REQUEST_FILES_PEERS para o multicast
               await sendPackageToMulticast('REQUEST_FILES_PEERS');
               client.write('Solicitacao de arquivos atendidas');
             }
@@ -85,6 +85,9 @@ class SuperNode {
   Future<void> listenerServerSocket() async {
     await socketServer.listen((client) {
       handleConnectionNodo(client);
+      //precisa validar se existe o client ou nao na lista de clients para caso nao exista adicionar o mesmo
+      //precisa cuidar mutex ou semaforo
+      addClient(client);
     });
   }
 
@@ -93,5 +96,18 @@ class SuperNode {
         Endpoint.multicast(InternetAddress('239.1.2.3'), port: Port(54321));
     var sender = await UDP.bind(Endpoint.any());
     await sender.send(message.codeUnits, multicastEndpoint);
+  }
+
+  void addClient(Socket client) {
+    //adicionar semaforo ou mutex aqui
+    if (clients.isEmpty) {
+      print('Adicionei o primeiro nodo');
+      clients.add(client);
+    } else {
+      if (!clients.contains(clients)) {
+        print('adicionei depois');
+        clients.add(client);
+      }
+    }
   }
 }
