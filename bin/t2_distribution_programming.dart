@@ -5,22 +5,30 @@ import 'package:t2_distribution_programming/server/Server.dart';
 import 'dart:io';
 
 void main(List<String> args) async {
-  if (args.length < 2) {
-    print('Formato [<nodo ou supernodo> <porta>]');
+  if (args.length < 3) {
+    print('Formato [<nodo ou supernodo> <porta> <id>]');
     return;
   }
 
+  final interfaces = await NetworkInterface.list(
+    includeLinkLocal: true,
+    type: InternetAddressType.IPv4,
+    includeLoopback: true,
+  );
+
+  final interface = interfaces[1];
   final port = int.parse(args[1]);
 
   if (args[0] == 'supernodo') {
-    final ip = InternetAddress.anyIPv4;
+    final id = args[2];
+    final ip = interface.addresses[0];
     final server = await ServerSocket.bind(ip, port);
-    var supernode = Server(ip.address, server);
-    print('Supernodo ip $ip e porta $port');
+    var supernode = Server(ip.address, server, id);
+    print('Supernodo ip: $ip porta: $port id:$id');
     await supernode.listenerServerSocket();
     await supernode.listenerMulticast();
-    // sempre que um supernodo entra na rede ele envia uma msg do tipo join para o  contador global inclui ele mesmo
-    final message = MessageClient('JOIN', []);
+    // sempre que um supernodo entra na rede ele envia uma msg do tipo join
+    final message = MessageClient('JOIN', id);
     await supernode.sendPackageToMulticast(message);
   } else if (args[0] == 'nodo') {
     if (args.length < 3) {
