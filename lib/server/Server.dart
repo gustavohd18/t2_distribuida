@@ -51,8 +51,8 @@ class Server {
           {
             //incrementa o valor pois alguem respondeu e envia como  array via multicast
             //todos seus arquivos
-            final file = await getFiles();
-            await addFilesFromSupernodo(file);
+            final files = messageObject.data.cast<String>();
+            await addFilesFromSupernodo(files);
             incrementCurrentSupernodos();
           }
           break;
@@ -120,7 +120,6 @@ class Server {
                 messageObject.data['availablePort'],
                 list,
               );
-              print('data enviado do nodo ${messageObject.data['files']}');
               await addNodo(clientObject);
               final message = MessageClient('REGISTER', []);
               var encodedMessage = jsonEncode(message);
