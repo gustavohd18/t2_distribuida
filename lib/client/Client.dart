@@ -13,7 +13,7 @@ class Client {
   final Socket socketClient;
   Client(this.id, this.socketClient, this.ip, this.availablePort);
 
-  Future<void> listenerSupernodo() async {
+  void listenerSupernodo() async {
     print(
         'Conetado com o supernodo: ${socketClient.remoteAddress.address}:${socketClient.remotePort}');
 

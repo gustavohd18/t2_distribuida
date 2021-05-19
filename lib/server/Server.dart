@@ -9,12 +9,17 @@ import 'package:udp/udp.dart';
 import 'package:mutex/mutex.dart';
 import 'Messages.dart';
 
+class HeartbeatServer {
+  final String id;
+  int time;
+  HeartbeatServer(this.id, this.time);
+}
+
 class Server {
   String name;
   final String id;
-  bool canSend = false;
-  int tryTenSegs = 0;
-  int total_supernodo = 1;
+  List<HeartbeatServer> servers = [];
+  int total_supernodo = 0;
   int current_total_supernodo = 0;
   final ServerSocket socketServer;
   List<Socket> clients = [];
@@ -38,9 +43,11 @@ class Server {
         case 'JOIN':
           {
             final String idData = messageObject.data;
-            if (idData != id) {
-              incrementTotalSupernodo();
-              //incremento o total e envio uma mensagem de que estou na rede
+            final time = 0;
+            var heartbeatServer = HeartbeatServer(idData, time);
+            final hasData = await hasServer(idData);
+            if (!hasData) {
+              addServer(heartbeatServer);
               final message = MessageClient('PRESENT_IN_NETWORK', id);
               await sendPackageToMulticast(message);
             }
@@ -50,9 +57,19 @@ class Server {
         case 'PRESENT_IN_NETWORK':
           {
             final String idData = messageObject.data;
-            if (idData != id) {
-              incrementTotalSupernodo();
+            final time = 0;
+            var heartbeatServer = HeartbeatServer(idData, time);
+            final hasData = await hasServer(idData);
+            if (!hasData) {
+              addServer(heartbeatServer);
             }
+          }
+          break;
+
+        case 'HEARTBEAT_SERVER':
+          {
+            final String idData = messageObject.data;
+            resetTimeToServer(idData);
           }
           break;
 
@@ -182,14 +199,13 @@ class Server {
                     MessageClient('WHO_HAVE_THIS_FILE', messageObject.data);
                 await sendPackageToMulticast(message);
                 //manda processar a thead para responder depois
-                 processRequestClient(client);
+                processRequestClient(client);
                 //manda mensagem que recebeu a solicitacao
                 // final messageWithFile = MessageClient('PROCESSING_REQUEST', []);
                 // var encodedMessage = jsonEncode(messageWithFile);
                 //client.write(encodedMessage);
               } else {
-                //mandar minha propria lista de arquivos
-                final list = await getFiles();
+                //O arquivo estava na minha pasta
                 final message =
                     MessageClient('RESPONSE_CLIENT_WITH_DATA', hasClient);
                 var encodedMessage = jsonEncode(message);
@@ -254,15 +270,14 @@ class Server {
     var encodedMessage = jsonEncode(messageWithFile);
     client.write(encodedMessage);
   }
-    void processRequestClient(Socket client) async {
 
+  void processRequestClient(Socket client) async {
     await Future.delayed(Duration(seconds: 10));
     final list = client_found;
     final messageWithFile = MessageClient('RESPONSE_CLIENT_WITH_DATA', list);
     var encodedMessage = jsonEncode(messageWithFile);
     client.write(encodedMessage);
   }
-
 
   Future<List<String>> sendFiles() async {
     //adicionar mutex para pegar da lista
@@ -276,7 +291,7 @@ class Server {
     }
   }
 
-  Future<void> listenerMulticast() async {
+  void listenerMulticast() async {
     // MULTICAST
     var multicastEndpoint =
         Endpoint.multicast(InternetAddress('239.1.2.3'), port: Port(54321));
@@ -289,7 +304,7 @@ class Server {
     });
   }
 
-  Future<void> listenerServerSocket() async {
+  void listenerServerSocket() async {
     await socketServer.listen((client) {
       handleConnectionNodo(client);
       addClient(client);
@@ -404,7 +419,7 @@ class Server {
       final total = await getTotalSupernodos();
 
       if (current_total_supernodo >= total_supernodo) {
-        canSend = true;
+        //  canSend = true;
         // tryTenSegs = 0;
       }
     } finally {
@@ -455,5 +470,116 @@ class Server {
     } finally {
       m.release();
     }
+  }
+
+  Future<bool> hasServer(String id) async {
+    await m.acquireRead();
+    try {
+      for (var i = 0; i < servers.length; i++) {
+        if (servers[i].id == id) {
+          return true;
+        }
+      }
+      return false;
+    } finally {
+      m.release();
+    }
+  }
+
+  Future<List<HeartbeatServer>> getServers() async {
+    await m.acquireRead();
+    try {
+      return servers;
+    } finally {
+      m.release();
+    }
+  }
+
+  void resetTimeToServer(String id) async {
+    await m.acquireWrite();
+    try {
+      if (servers.isNotEmpty) {
+        for (var i = 0; i < servers.length; i++) {
+          servers[i].time = 0;
+        }
+      }
+    } finally {
+      m.release();
+    }
+  }
+
+  void removeServers() async {
+    await m.acquireWrite();
+    try {
+      if (servers.isNotEmpty) {
+        final size = servers.length;
+        for (var i = 0; i < size; i++) {
+          if (servers[i].time > 4) {
+            servers.remove(servers[i]);
+          }
+        }
+      }
+    } finally {
+      m.release();
+    }
+  }
+
+  void incrementServers() async {
+    await m.acquireWrite();
+    try {
+      if (servers.isNotEmpty) {
+        for (var i = 0; i < servers.length; i++) {
+          servers[i].time++;
+        }
+      }
+    } finally {
+      m.release();
+    }
+  }
+
+  void addServer(HeartbeatServer server) async {
+    await m.acquireWrite();
+    try {
+      // sessao critica
+      if (servers.isEmpty) {
+        servers.add(server);
+      } else {
+        if (!servers.contains(server)) {
+          servers.add(server);
+        }
+      }
+    } finally {
+      m.release();
+    }
+  }
+
+  void removeServer(String server) async {
+    await m.acquireWrite();
+    try {
+      // sessao critica
+      if (servers.isNotEmpty) {
+        servers.remove(server);
+      }
+    } finally {
+      m.release();
+    }
+  }
+
+  void heartbeatServer() async {
+    const fiveSec = Duration(seconds: 5);
+    Timer.periodic(
+        fiveSec,
+        (Timer t) =>
+            sendPackageToMulticast(MessageClient('HEARTBEAT_SERVER', id)));
+  }
+
+  void incrementTimeServer() async {
+    const fiveSec = Duration(seconds: 10);
+    Timer.periodic(fiveSec, (Timer t) => incrementServers());
+  }
+
+  void removeServeWithNoResponse() async {
+    const fiveSec = Duration(seconds: 15);
+    Timer.periodic(fiveSec, (Timer t) => removeServers());
   }
 }
