@@ -94,14 +94,16 @@ class Server {
                 }
                 //todo mundo respondeu entao posso zerar
                 await decrementCurrentSupernodos();
-                print('data enviado do nodo ${messageObject.data}');
-                client.write('Mandei a lista de geral');
+                //manda arquivos
+                final list = await sendFiles();
+                final messageWithFile = MessageClient('RESPONSE_LIST', list);
+                var encodedMessage = jsonEncode(messageWithFile);
+                client.write(encodedMessage);
               } else {
                 //mandar minha propria lista de arquivos
                 final list = await getFiles();
                 final message = MessageClient('RESPONSE_LIST', list);
                 var encodedMessage = jsonEncode(message);
-                print(encodedMessage);
                 client.write(encodedMessage);
               }
             }
@@ -176,6 +178,18 @@ class Server {
           files.add(client.files[j]);
         }
       }
+      return files;
+    } finally {
+      m.release();
+    }
+  }
+
+    Future<List<String>> sendFiles() async {
+    //adicionar mutex para pegar da lista
+    await m.acquireRead();
+    try {
+      // ignore: omit_local_variable_types
+      List<String> files = await filesToSend;
       return files;
     } finally {
       m.release();
