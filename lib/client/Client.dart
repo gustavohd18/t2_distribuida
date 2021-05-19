@@ -32,6 +32,12 @@ class Client {
             }
             break;
 
+          case 'PROCESSING_REQUEST':
+            {
+              print('Processando a lista de arquivos na rede');
+            }
+            break;
+
           case 'REGISTER':
             {
               print('recebido o registro');

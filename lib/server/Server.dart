@@ -36,7 +36,6 @@ class Server {
       switch (messageObject.message) {
         case 'JOIN':
           {
-            print("join message");
             final String idData = messageObject.data;
             if (idData != id) {
               incrementTotalSupernodo();
@@ -49,7 +48,6 @@ class Server {
 
         case 'PRESENT_IN_NETWORK':
           {
-            print("Present message");
             final String idData = messageObject.data;
             if (idData != id) {
               incrementTotalSupernodo();
@@ -59,11 +57,9 @@ class Server {
 
         case 'REQUEST_FILES_PEERS':
           {
-            print("Request files peers message");
             //incrementa o valor pois alguem respondeu e envia como  array via multicast
             //todos seus arquivos
             final file = await getFiles();
-            print(file);
             final message = MessageClient('RESPONSE_FILES', file);
             await sendPackageToMulticast(message);
           }
@@ -71,13 +67,19 @@ class Server {
 
         case 'RESPONSE_FILES':
           {
-            print("Response files message");
             //incrementa o valor pois alguem respondeu e envia como  array via multicast
             //todos seus arquivos
             final files = messageObject.data.cast<String>();
-            print(files);
             await addFilesFromSupernodo(files);
-            incrementCurrentSupernodos();
+            final message = MessageClient('INCREMENT_CURRENT', []);
+            await sendPackageToMulticast(message);
+          }
+          break;
+
+        case 'INCREMENT_CURRENT':
+          {
+            print('INCREMENT');
+            await incrementCurrentSupernodos();
           }
           break;
         case 'RESET_CURRENT':
@@ -109,21 +111,16 @@ class Server {
             {
               // reset current
               await resetCurrentSupernodos();
+              //limpa a lista
+              await resetListOfFilesFromSupernodo();
               //nao tem só 1 supernodo na rede
               if (total_supernodo > 1) {
                 final message = MessageClient('REQUEST_FILES_PEERS', []);
                 await sendPackageToMulticast(message);
-                //fazer outras coisas TODO
-                //await espera todos responderem com a lista
-                // while (current_total_supernodo < total_supernodo) {
-                //await todos responderem
-                //  }
-                //Timer.periodic(Duration(seconds: 1), (Timer t) async => await checkUpdate());
-                //todo mundo respondeu entao posso zerar
-                await resetCurrentSupernodos();
-                //manda arquivos
-                final list = await sendFiles();
-                final messageWithFile = MessageClient('RESPONSE_LIST', list);
+                //manda processar a thead para responder depois
+                processRequestFiles(client);
+                //manda mensagem que recebeu a solicitacao
+                final messageWithFile = MessageClient('PROCESSING_REQUEST', []);
                 var encodedMessage = jsonEncode(messageWithFile);
                 client.write(encodedMessage);
               } else {
@@ -147,7 +144,7 @@ class Server {
                 messageObject.data['availablePort'],
                 list,
               );
-              await addNodo(clientObject);
+             await addNodo(clientObject);
               final message = MessageClient('REGISTER', []);
               var encodedMessage = jsonEncode(message);
               print(encodedMessage);
@@ -210,6 +207,15 @@ class Server {
     }
   }
 
+  void processRequestFiles(Socket client) async {
+    await Future.delayed(Duration(seconds: 10));
+    final list = await sendFiles();
+    final messageWithFile = MessageClient('RESPONSE_LIST', list);
+    var encodedMessage = jsonEncode(messageWithFile);
+    client.write(encodedMessage);
+    
+  }
+
   Future<List<String>> sendFiles() async {
     //adicionar mutex para pegar da lista
     await m.acquireRead();
@@ -243,7 +249,6 @@ class Server {
   }
 
   Future<void> sendPackageToMulticast(MessageClient messageClient) async {
-    print("send packet");
     var multicastEndpoint =
         Endpoint.multicast(InternetAddress('239.1.2.3'), port: Port(54321));
     var sender = await UDP.bind(Endpoint.any());
@@ -325,7 +330,6 @@ class Server {
     await m.acquireWrite();
     try {
       // sessao critica
-      print('Algum supernodo respondeu');
       current_total_supernodo++;
     } finally {
       m.release();
@@ -347,16 +351,42 @@ class Server {
     //adicionar mutex para pegar da lista
     await m.acquireWrite();
     try {
-      tryTenSegs++;
-      print("total $total_supernodo");
-      if (tryTenSegs == 10) {
-        canSend = true;
-        tryTenSegs = 0;
-      }
+      //tryTenSegs++;
+      final current = await getCurrentTotalSupernodo();
+      final total = await getTotalSupernodos();
+
       if (current_total_supernodo >= total_supernodo) {
         canSend = true;
-        tryTenSegs = 0;
+        // tryTenSegs = 0;
       }
+    } finally {
+      m.release();
+    }
+  }
+
+  void resetListOfFilesFromSupernodo() async {
+    await m.acquireWrite();
+    try {
+      // sessao critica
+      filesToSend = [];
+    } finally {
+      m.release();
+    }
+  }
+
+  Future<int> getCurrentTotalSupernodo() async {
+    await m.acquireRead();
+    try {
+      return current_total_supernodo;
+    } finally {
+      m.release();
+    }
+  }
+
+  Future<int> getTotalSupernodos() async {
+    await m.acquireRead();
+    try {
+      return total_supernodo;
     } finally {
       m.release();
     }
