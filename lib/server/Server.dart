@@ -17,41 +17,58 @@ class Server {
   List<Socket> clients = [];
   final m = ReadWriteMutex();
   //lista que é preechida com arquivos enviados pelos multicasts somente com arquivos
-  List<String> files = [];
+  List<String> filesToSend = [];
   //dados de cada usuario no supernodo inclui seu identificador e arquivos
   List<ClientToServer> clients_info = [];
   Server(this.name, this.socketServer);
 
-  void handleConnectionSupernodo(Datagram data) {
+  void handleConnectionSupernodo(Datagram data) async {
     //validar para lidar com string ou objetos que pode ser enviados
-    if(data != null) {
+    if (data != null) {
       final object = String.fromCharCodes(data.data);
       Map<String, dynamic> decodedMessage = jsonDecode(object);
       final messageObject =
           MessageClient(decodedMessage['message'], decodedMessage['data']);
 
-    switch (messageObject.message) {
-      case 'JOIN':
-        {
-          incrementTotalSupernodo();
-        }
-        break;
+      switch (messageObject.message) {
+        case 'JOIN':
+          {
+            incrementTotalSupernodo();
+          }
+          break;
 
-      case 'REQUEST_FILES_PEERS':
-        {
-          //incrementa o valor pois alguem respondeu e envia como  array via multicast
-          //todos seus arquivos
-          incrementCurrentSupernodos();
-        }
-        break;
+        case 'REQUEST_FILES_PEERS':
+          {
+            //incrementa o valor pois alguem respondeu e envia como  array via multicast
+            //todos seus arquivos
+            final file = await getFiles();
+            final message = MessageClient('RESPONSE_FILES', file);
+            await sendPackageToMulticast(message);
+          }
+          break;
 
-      default:
-        {
-          print('Mensagem nao mapeada');
-        }
-        break;
+        case 'RESPONSE_FILES':
+          {
+            //incrementa o valor pois alguem respondeu e envia como  array via multicast
+            //todos seus arquivos
+            final file = await getFiles();
+            await addFilesFromSupernodo(file);
+            incrementCurrentSupernodos();
+          }
+          break;
+        case 'RESET_CURRENT':
+          {
+            //reseta o valor dos current
+            await decrementCurrentSupernodos();
+          }
+          break;
+        default:
+          {
+            print('Mensagem nao mapeada');
+          }
+          break;
       }
-    } 
+    }
   }
 
   void handleConnectionNodo(Socket client) {
@@ -72,6 +89,11 @@ class Server {
                 await sendPackageToMulticast(message);
                 //fazer outras coisas TODO
                 //await espera todos responderem com a lista
+                while (current_total_supernodo < total_supernodo) {
+                  //await todos responderem
+                }
+                //todo mundo respondeu entao posso zerar
+                await decrementCurrentSupernodos();
                 print('data enviado do nodo ${messageObject.data}');
                 client.write('Mandei a lista de geral');
               } else {
@@ -145,16 +167,16 @@ class Server {
   Future<List<String>> getFiles() async {
     //adicionar mutex para pegar da lista
     await m.acquireRead();
-    try{
-       // ignore: omit_local_variable_types
+    try {
+      // ignore: omit_local_variable_types
       List<String> files = [];
       for (var i = 0; i < clients_info.length; i++) {
         var client = clients_info[i];
         for (var j = 0; j < client.files.length; j++) {
           files.add(client.files[j]);
+        }
       }
-    }
-    return files;
+      return files;
     } finally {
       m.release();
     }
@@ -184,7 +206,7 @@ class Server {
     var multicastEndpoint =
         Endpoint.multicast(InternetAddress('239.1.2.3'), port: Port(54321));
     var sender = await UDP.bind(Endpoint.any());
-     var encodedMessage = jsonEncode(messageClient);
+    var encodedMessage = jsonEncode(messageClient);
     await sender.send(encodedMessage.codeUnits, multicastEndpoint);
   }
 
@@ -194,15 +216,15 @@ class Server {
     // No other locks (read or write) can be acquired until released
     try {
       // sessao critica
-     if (clients.isEmpty) {
-      print('Adicionei o socket do primeiro nodo');
-      clients.add(client);
-    } else {
-      if (!clients.contains(client)) {
-        print('Adicionei o socket do nodo');
+      if (clients.isEmpty) {
+        print('Adicionei o socket do primeiro nodo');
         clients.add(client);
+      } else {
+        if (!clients.contains(client)) {
+          print('Adicionei o socket do nodo');
+          clients.add(client);
+        }
       }
-    }
     } finally {
       m.release();
     }
@@ -221,6 +243,16 @@ class Server {
           clients_info.add(client);
         }
       }
+    } finally {
+      m.release();
+    }
+  }
+
+  void addFilesFromSupernodo(List<String> file) async {
+    await m.acquireWrite();
+    try {
+      // sessao critica
+      filesToSend.addAll(file);
     } finally {
       m.release();
     }
