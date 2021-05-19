@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:t2_distribution_programming/ClientToServer.dart';
 import 'package:t2_distribution_programming/client/MessageClient.dart';
 
 class Client {
@@ -35,6 +36,18 @@ class Client {
           case 'PROCESSING_REQUEST':
             {
               print('Processando a lista de arquivos na rede');
+            }
+            break;
+          case 'RESPONSE_CLIENT_WITH_DATA':
+            {
+              final list = messageObject.data['files'].cast<String>();
+              final clientObject = ClientToServer(
+                messageObject.data['id'],
+                messageObject.data['ip'],
+                messageObject.data['availablePort'],
+                list,
+              );
+              print('data ${clientObject.ip}  ${clientObject.availablePort}');
             }
             break;
 

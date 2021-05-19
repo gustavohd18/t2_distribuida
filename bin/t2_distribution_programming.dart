@@ -53,5 +53,8 @@ void main(List<String> args) async {
     final messageExample =
         MessageClient('REQUEST_LIST_FILES', ['test', 'streaming']);
     await client.sendMessageStringToSupernodo(messageExample);
+    final messageData = MessageClient('REQUEST_PEER', 'disneytorrent');
+    await Future.delayed(Duration(seconds: 30));
+    await client.sendMessageStringToSupernodo(messageData);
   }
 }

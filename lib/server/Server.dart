@@ -18,6 +18,7 @@ class Server {
   int current_total_supernodo = 0;
   final ServerSocket socketServer;
   List<Socket> clients = [];
+  ClientToServer client_found;
   final m = ReadWriteMutex();
   //lista que é preechida com arquivos enviados pelos multicasts somente com arquivos
   List<String> filesToSend = [];
@@ -88,6 +89,30 @@ class Server {
             await resetCurrentSupernodos();
           }
           break;
+
+        case 'WHO_HAVE_THIS_FILE':
+          {
+            final nameFile = messageObject.data;
+            final client = await getClientFromFile(nameFile);
+            if (client != null) {
+              final message = MessageClient('GET_FILE', client);
+              await sendPackageToMulticast(message);
+            }
+          }
+          break;
+        case 'GET_FILE':
+          {
+            //revisitar isso para deixar melhor
+            var list = messageObject.data['files'].cast<String>();
+            final clientObject = ClientToServer(
+              messageObject.data['id'],
+              messageObject.data['ip'],
+              messageObject.data['availablePort'],
+              list,
+            );
+            client_found = clientObject;
+          }
+          break;
         default:
           {
             print('Mensagem nao mapeada');
@@ -109,10 +134,6 @@ class Server {
         switch (messageObject.message) {
           case 'REQUEST_LIST_FILES':
             {
-              // reset current
-              await resetCurrentSupernodos();
-              //limpa a lista
-              await resetListOfFilesFromSupernodo();
               //nao tem só 1 supernodo na rede
               if (total_supernodo > 1) {
                 final message = MessageClient('REQUEST_FILES_PEERS', []);
@@ -144,7 +165,7 @@ class Server {
                 messageObject.data['availablePort'],
                 list,
               );
-             await addNodo(clientObject);
+              await addNodo(clientObject);
               final message = MessageClient('REGISTER', []);
               var encodedMessage = jsonEncode(message);
               print(encodedMessage);
@@ -154,9 +175,26 @@ class Server {
 
           case 'REQUEST_PEER':
             {
-              //verificar se tenho esse peers caso tenha mando direto senao mando msg broadcast
-              // e espero alguem que tem que me responder
-              client.write('Solicitacao de peers atendidas');
+              //nao tem só 1 supernodo na rede
+              final hasClient = await getClientFromFile(messageObject.data);
+              if (hasClient == null) {
+                final message =
+                    MessageClient('WHO_HAVE_THIS_FILE', messageObject.data);
+                await sendPackageToMulticast(message);
+                //manda processar a thead para responder depois
+                 processRequestClient(client);
+                //manda mensagem que recebeu a solicitacao
+                // final messageWithFile = MessageClient('PROCESSING_REQUEST', []);
+                // var encodedMessage = jsonEncode(messageWithFile);
+                //client.write(encodedMessage);
+              } else {
+                //mandar minha propria lista de arquivos
+                final list = await getFiles();
+                final message =
+                    MessageClient('RESPONSE_CLIENT_WITH_DATA', hasClient);
+                var encodedMessage = jsonEncode(message);
+                client.write(encodedMessage);
+              }
             }
             break;
 
@@ -208,13 +246,23 @@ class Server {
   }
 
   void processRequestFiles(Socket client) async {
+    //preciso validar aqui se todos os nodos enviaram algo ou passar x tempo envia o que tem
+    //por enquanto assumimos que em 10 segundos vai responder todo mundo na rede
     await Future.delayed(Duration(seconds: 10));
     final list = await sendFiles();
     final messageWithFile = MessageClient('RESPONSE_LIST', list);
     var encodedMessage = jsonEncode(messageWithFile);
     client.write(encodedMessage);
-    
   }
+    void processRequestClient(Socket client) async {
+
+    await Future.delayed(Duration(seconds: 10));
+    final list = client_found;
+    final messageWithFile = MessageClient('RESPONSE_CLIENT_WITH_DATA', list);
+    var encodedMessage = jsonEncode(messageWithFile);
+    client.write(encodedMessage);
+  }
+
 
   Future<List<String>> sendFiles() async {
     //adicionar mutex para pegar da lista
@@ -387,6 +435,23 @@ class Server {
     await m.acquireRead();
     try {
       return total_supernodo;
+    } finally {
+      m.release();
+    }
+  }
+
+  Future<ClientToServer> getClientFromFile(String file) async {
+    await m.acquireRead();
+    try {
+      for (var i = 0; i < clients_info.length; i++) {
+        var client = clients_info[i];
+        for (var j = 0; j < client.files.length; j++) {
+          if (file == client.files[j]) {
+            return client;
+          }
+        }
+      }
+      return null;
     } finally {
       m.release();
     }
