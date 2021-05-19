@@ -31,10 +31,10 @@ class Client {
               print(list);
             }
             break;
-            
+
           case 'REGISTER':
             {
-              print("recebido o registro");
+              print('recebido o registro');
             }
             break;
 
@@ -57,6 +57,8 @@ class Client {
     //vamos usar json nos objetos para envio
     var encodedMessage = jsonEncode(messageClient);
     print('Nodo: $encodedMessage');
+    //add delay por enquanto devido a problemas com msg sendo mandadas ao mesmo tempo enquanto nao tem o terminal pronto
+    await Future.delayed(Duration(seconds: 2));
     socketClient.write(encodedMessage);
   }
 }

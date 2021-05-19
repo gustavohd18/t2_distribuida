@@ -75,7 +75,7 @@ class Server {
                 final message = MessageClient('RESPONSE_LIST', list);
                 var encodedMessage = jsonEncode(message);
                 print(encodedMessage);
-               // client.write(encodedMessage);
+                client.write(encodedMessage);
               }
             }
             break;
@@ -135,18 +135,22 @@ class Server {
     );
   }
 
-  List<String> getFiles() {
+  Future<List<String>> getFiles() async {
     //adicionar mutex para pegar da lista
-    // ignore: omit_local_variable_types
-    List<String> files = [];
-    for (var i = 0; i < clients_info.length; i++) {
-      var client = clients_info[i];
-      for (var j = 0; j < client.files.length; j++) {
-        files.add(client.files[j]);
+    await m.acquireRead();
+    try{
+       // ignore: omit_local_variable_types
+      List<String> files = [];
+      for (var i = 0; i < clients_info.length; i++) {
+        var client = clients_info[i];
+        for (var j = 0; j < client.files.length; j++) {
+          files.add(client.files[j]);
       }
     }
-
     return files;
+    } finally {
+      m.release();
+    }
   }
 
   Future<void> listenerMulticast() async {
@@ -165,8 +169,6 @@ class Server {
   Future<void> listenerServerSocket() async {
     await socketServer.listen((client) {
       handleConnectionNodo(client);
-      //precisa validar se existe o client ou nao na lista de clients para caso nao exista adicionar o mesmo
-      //precisa cuidar mutex ou semaforo
       addClient(client);
     });
   }
@@ -178,9 +180,13 @@ class Server {
     await sender.send(message.codeUnits, multicastEndpoint);
   }
 
-  void addClient(Socket client) {
+  void addClient(Socket client) async {
     //adicionar semaforo ou mutex aqui
-    if (clients.isEmpty) {
+    await m.acquireWrite();
+    // No other locks (read or write) can be acquired until released
+    try {
+      // sessao critica
+     if (clients.isEmpty) {
       print('Adicionei o socket do primeiro nodo');
       clients.add(client);
     } else {
@@ -189,12 +195,13 @@ class Server {
         clients.add(client);
       }
     }
+    } finally {
+      m.release();
+    }
   }
 
   void addNodo(ClientToServer client) async {
-    print("client $client");
     await m.acquireWrite();
-    // No other locks (read or write) can be acquired until released
     try {
       // sessao critica
       if (clients_info.isEmpty) {
