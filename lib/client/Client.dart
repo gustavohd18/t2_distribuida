@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:crypto/crypto.dart';
 
 import 'package:t2_distribution_programming/client/MessageClient.dart';
 
@@ -11,6 +12,25 @@ class Client {
   List<String> files;
   final Socket socketClient;
   Client(this.id, this.socketClient, this.ip, this.availablePort);
+
+  Future<List<String>> getHash(filesPath) async {
+    /*
+   * Fonte(s):
+   * https://stackoverflow.com/questions/14268967/how-do-i-list-the-contents-of-a-directory-with-dart
+   * https://stackoverflow.com/questions/57385832/flutter-compute-function-for-image-hashing/62202544#62202544
+   */
+    Directory filesDir = Directory(filesPath);
+    if (filesDir.existsSync()) {
+      List<String> hashFileList = List<String>();
+      List<FileSystemEntity> contents = filesDir.listSync(recursive: false);
+      for (File file in contents) {
+        Digest digest = await (sha256.bind(file.openRead())).first;
+        hashFileList.add(file.path + ";" + digest.toString());
+      }
+      return hashFileList;
+    }
+    return null;
+  }
 
   Future<void> listenerSupernodo() async {
     print(
@@ -31,7 +51,7 @@ class Client {
               print(list);
             }
             break;
-            
+
           case 'REGISTER':
             {
               print("recebido o registro");

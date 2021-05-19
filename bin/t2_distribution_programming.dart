@@ -22,7 +22,7 @@ void main(List<String> args) async {
     // sempre que um supernodo entra na rede ele envia uma msg do tipo join para o  contador global inclui ele mesmo
     await supernode.sendPackageToMulticast('JOIN');
   } else if (args[0] == 'nodo') {
-    if (args.length < 3) {
+    if (args.length < 4) {
       print(
           'Formato [<nodo ou supernodo> <porta mesma do supernodo> <ip do supernodo> <path dos files>]');
       return;
@@ -32,6 +32,13 @@ void main(List<String> args) async {
     // precisa adicionar parametro por linha de comando para o id e o proprio ip e propria porta disponivel
     final files = <String>['disneytorrent', 'netflixfilmetorrent'];
     final client = Client('same1', socket, '0.0.0.0', 8089);
+
+    // ### FILE HASH ### //
+    final clientFilesList = await client.getHash(args[3]);
+    for (String s in clientFilesList) {
+      print(s);
+    }
+
     await client.listenerSupernodo();
     //exemplo envio dos dados do client
     final clientData =
