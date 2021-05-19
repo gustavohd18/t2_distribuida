@@ -20,7 +20,8 @@ void main(List<String> args) async {
     await supernode.listenerServerSocket();
     await supernode.listenerMulticast();
     // sempre que um supernodo entra na rede ele envia uma msg do tipo join para o  contador global inclui ele mesmo
-    await supernode.sendPackageToMulticast('JOIN');
+    final message = MessageClient('JOIN', []);
+    await supernode.sendPackageToMulticast(message);
   } else if (args[0] == 'nodo') {
     if (args.length < 3) {
       print(

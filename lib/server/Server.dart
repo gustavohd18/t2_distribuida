@@ -17,17 +17,20 @@ class Server {
   List<Socket> clients = [];
   final m = ReadWriteMutex();
   //lista que é preechida com arquivos enviados pelos multicasts somente com arquivos
-  //e o identificador do client para solicitacao dos  demais dados no caso de dowload
-  HashMap<String, List<String>> peersFilesFromSuperNodos = HashMap();
+  List<String> files = [];
   //dados de cada usuario no supernodo inclui seu identificador e arquivos
   List<ClientToServer> clients_info = [];
   Server(this.name, this.socketServer);
 
   void handleConnectionSupernodo(Datagram data) {
     //validar para lidar com string ou objetos que pode ser enviados
-    final message = String.fromCharCodes(data.data);
-    print('datagrama vindo ${message}');
-    switch (message) {
+    if(data != null) {
+      final object = String.fromCharCodes(data.data);
+      Map<String, dynamic> decodedMessage = jsonDecode(object);
+      final messageObject =
+          MessageClient(decodedMessage['message'], decodedMessage['data']);
+
+    switch (messageObject.message) {
       case 'JOIN':
         {
           incrementTotalSupernodo();
@@ -47,7 +50,8 @@ class Server {
           print('Mensagem nao mapeada');
         }
         break;
-    }
+      }
+    } 
   }
 
   void handleConnectionNodo(Socket client) {
@@ -64,9 +68,10 @@ class Server {
             {
               //nao tem só 1 supernodo na rede
               if (total_supernodo > 1) {
-                await sendPackageToMulticast('REQUEST_FILES_PEERS');
+                final message = MessageClient('REQUEST_FILES_PEERS', []);
+                await sendPackageToMulticast(message);
                 //fazer outras coisas TODO
-                //await espera todos responderem
+                //await espera todos responderem com a lista
                 print('data enviado do nodo ${messageObject.data}');
                 client.write('Mandei a lista de geral');
               } else {
@@ -102,6 +107,8 @@ class Server {
 
           case 'REQUEST_PEER':
             {
+              //verificar se tenho esse peers caso tenha mando direto senao mando msg broadcast
+              // e espero alguem que tem que me responder
               client.write('Solicitacao de peers atendidas');
             }
             break;
@@ -173,11 +180,12 @@ class Server {
     });
   }
 
-  Future<void> sendPackageToMulticast(String message) async {
+  Future<void> sendPackageToMulticast(MessageClient messageClient) async {
     var multicastEndpoint =
         Endpoint.multicast(InternetAddress('239.1.2.3'), port: Port(54321));
     var sender = await UDP.bind(Endpoint.any());
-    await sender.send(message.codeUnits, multicastEndpoint);
+     var encodedMessage = jsonEncode(messageClient);
+    await sender.send(encodedMessage.codeUnits, multicastEndpoint);
   }
 
   void addClient(Socket client) async {
