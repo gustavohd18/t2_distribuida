@@ -36,8 +36,7 @@ void main(List<String> args) async {
     final message = MessageClient('JOIN', id);
     await supernode.sendPackageToMulticast(message);
   } else if (args[0] == 'nodo') {
-    // precisa mapear para passar o id tbm etc
-    if (args.length < 3) {
+    if (args.length < 4) {
       print(
           'Formato [<nodo> <porta do supernodo> <ip do supernodo> <path dos files>]');
       return;
@@ -48,6 +47,11 @@ void main(List<String> args) async {
     final files = <String>['disneyorrenr', 'netflixfilmetorren'];
     final client = Client('same4', socket, '0.0.0.0', 8089);
     client.listenerSupernodo();
+    // ### FILE HASH ### //
+    final clientFilesList = await client.getHash(args[3]);
+    for (String s in clientFilesList) {
+      print(s);
+    }
     //exemplo envio dos dados do client
     final clientData =
         ClientToServer(client.id, client.ip, client.availablePort, files, 0);
