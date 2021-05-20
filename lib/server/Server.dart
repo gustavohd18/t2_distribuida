@@ -69,6 +69,7 @@ class Server {
         case 'HEARTBEAT_SERVER':
           {
             final String idData = messageObject.data;
+            print('HeartBeat come from $idData');
             resetTimeToServer(idData);
           }
           break;
@@ -88,7 +89,7 @@ class Server {
             //incrementa o valor pois alguem respondeu e envia como  array via multicast
             //todos seus arquivos
             final files = messageObject.data.cast<String>();
-            await addFilesFromSupernodo(files);
+            addFilesFromSupernodo(files);
             final message = MessageClient('INCREMENT_CURRENT', []);
             await sendPackageToMulticast(message);
           }
@@ -152,7 +153,8 @@ class Server {
           case 'REQUEST_LIST_FILES':
             {
               //nao tem só 1 supernodo na rede
-              if (total_supernodo > 1) {
+              final list = await getServers();
+              if (list.length > 1) {
                 final message = MessageClient('REQUEST_FILES_PEERS', []);
                 await sendPackageToMulticast(message);
                 //manda processar a thead para responder depois
@@ -201,9 +203,9 @@ class Server {
                 //manda processar a thead para responder depois
                 processRequestClient(client);
                 //manda mensagem que recebeu a solicitacao
-                // final messageWithFile = MessageClient('PROCESSING_REQUEST', []);
-                // var encodedMessage = jsonEncode(messageWithFile);
-                //client.write(encodedMessage);
+                 final messageWithFile = MessageClient('PROCESSING_REQUEST', []);
+                 var encodedMessage = jsonEncode(messageWithFile);
+                client.write(encodedMessage);
               } else {
                 //O arquivo estava na minha pasta
                 final message =
@@ -262,9 +264,8 @@ class Server {
   }
 
   void processRequestFiles(Socket client) async {
-    //preciso validar aqui se todos os nodos enviaram algo ou passar x tempo envia o que tem
-    //por enquanto assumimos que em 10 segundos vai responder todo mundo na rede
-    await Future.delayed(Duration(seconds: 10));
+    //por enquanto assumimos que em 6 segundos vai responder todo mundo na rede
+    await Future.delayed(Duration(seconds: 6));
     final list = await sendFiles();
     final messageWithFile = MessageClient('RESPONSE_LIST', list);
     var encodedMessage = jsonEncode(messageWithFile);
@@ -272,7 +273,8 @@ class Server {
   }
 
   void processRequestClient(Socket client) async {
-    await Future.delayed(Duration(seconds: 10));
+    //por enquanto assumimos que em 6 segundos vai responder todo mundo na rede
+    await Future.delayed(Duration(seconds: 6));
     final list = client_found;
     final messageWithFile = MessageClient('RESPONSE_CLIENT_WITH_DATA', list);
     var encodedMessage = jsonEncode(messageWithFile);
