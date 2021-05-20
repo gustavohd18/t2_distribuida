@@ -3,7 +3,8 @@ class ClientToServer {
   final String ip;
   final int availablePort;
   final List<String> files;
-  ClientToServer(this.id, this.ip, this.availablePort, this.files);
+  int time;
+  ClientToServer(this.id, this.ip, this.availablePort, this.files, this.time);
 
   ClientToServer.fromJson(Map<String, dynamic> json)
       : id = json['id'],
@@ -12,9 +13,9 @@ class ClientToServer {
         files = json['files'];
 
   Map<String, dynamic> toJson() => {
-    'id' : id,
-    'ip' : ip,
-    'availablePort' : availablePort,
-    'files' : files,
-  };
+        'id': id,
+        'ip': ip,
+        'availablePort': availablePort,
+        'files': files,
+      };
 }
