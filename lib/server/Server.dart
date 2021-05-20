@@ -2,12 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:collection';
 import 'package:t2_distribution_programming/ClientToServer.dart';
 import 'package:t2_distribution_programming/client/MessageClient.dart';
 import 'package:udp/udp.dart';
 import 'package:mutex/mutex.dart';
-import 'Messages.dart';
 
 class HeartbeatServer {
   final String id;
@@ -19,8 +17,6 @@ class Server {
   String name;
   final String id;
   List<HeartbeatServer> servers = [];
-  int total_supernodo = 0;
-  int current_total_supernodo = 0;
   final ServerSocket socketServer;
   List<Socket> clients = [];
   ClientToServer client_found;
@@ -90,21 +86,6 @@ class Server {
             //todos seus arquivos
             final files = messageObject.data.cast<String>();
             addFilesFromSupernodo(files);
-            final message = MessageClient('INCREMENT_CURRENT', []);
-            await sendPackageToMulticast(message);
-          }
-          break;
-
-        case 'INCREMENT_CURRENT':
-          {
-            print('INCREMENT');
-            await incrementCurrentSupernodos();
-          }
-          break;
-        case 'RESET_CURRENT':
-          {
-            //reseta o valor dos current
-            await resetCurrentSupernodos();
           }
           break;
 
@@ -120,7 +101,7 @@ class Server {
           break;
         case 'GET_FILE':
           {
-            //revisitar isso para deixar melhor
+            //revisitar isso para deixar melhor pois passamos todos
             var list = messageObject.data['files'].cast<String>();
             final clientObject = ClientToServer(
               messageObject.data['id'],
@@ -194,7 +175,6 @@ class Server {
 
           case 'REQUEST_PEER':
             {
-              //nao tem só 1 supernodo na rede
               final hasClient = await getClientFromFile(messageObject.data);
               if (hasClient == null) {
                 final message =
@@ -213,12 +193,6 @@ class Server {
                 var encodedMessage = jsonEncode(message);
                 client.write(encodedMessage);
               }
-            }
-            break;
-
-          case 'SEND_FILES_LIST':
-            {
-              client.write('Solicitacao de arquivos atendidas');
             }
             break;
 
@@ -264,6 +238,7 @@ class Server {
   }
 
   void processRequestFiles(Socket client) async {
+    //TODO precisa limpar a lista de alguma forma apos o envio
     //por enquanto assumimos que em 6 segundos vai responder todo mundo na rede
     await Future.delayed(Duration(seconds: 6));
     final list = await sendFiles();
@@ -282,7 +257,6 @@ class Server {
   }
 
   Future<List<String>> sendFiles() async {
-    //adicionar mutex para pegar da lista
     await m.acquireRead();
     try {
       // ignore: omit_local_variable_types
@@ -369,89 +343,11 @@ class Server {
     }
   }
 
-  void incrementTotalSupernodo() async {
-    await m.acquireWrite();
-    try {
-      // sessao critica
-      print('novo supernodo na rede');
-      total_supernodo++;
-    } finally {
-      m.release();
-    }
-  }
-
-  void decrementTotalSupernodo() async {
-    await m.acquireWrite();
-    try {
-      // sessao critica
-      print('menos supernodo na rede');
-      total_supernodo--;
-    } finally {
-      m.release();
-    }
-  }
-
-  void incrementCurrentSupernodos() async {
-    await m.acquireWrite();
-    try {
-      // sessao critica
-      current_total_supernodo++;
-    } finally {
-      m.release();
-    }
-  }
-
-  void resetCurrentSupernodos() async {
-    await m.acquireWrite();
-    try {
-      // sessao critica
-      print('todos supernodos responderam');
-      current_total_supernodo = 0;
-    } finally {
-      m.release();
-    }
-  }
-
-  void checkUpdate() async {
-    //adicionar mutex para pegar da lista
-    await m.acquireWrite();
-    try {
-      //tryTenSegs++;
-      final current = await getCurrentTotalSupernodo();
-      final total = await getTotalSupernodos();
-
-      if (current_total_supernodo >= total_supernodo) {
-        //  canSend = true;
-        // tryTenSegs = 0;
-      }
-    } finally {
-      m.release();
-    }
-  }
-
   void resetListOfFilesFromSupernodo() async {
     await m.acquireWrite();
     try {
       // sessao critica
       filesToSend = [];
-    } finally {
-      m.release();
-    }
-  }
-
-  Future<int> getCurrentTotalSupernodo() async {
-    await m.acquireRead();
-    try {
-      return current_total_supernodo;
-    } finally {
-      m.release();
-    }
-  }
-
-  Future<int> getTotalSupernodos() async {
-    await m.acquireRead();
-    try {
-      return total_supernodo;
     } finally {
       m.release();
     }
