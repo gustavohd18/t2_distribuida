@@ -34,7 +34,7 @@ class Client {
     return null;
   }
 
-  Future<void> listenerSupernodo() async {
+  void listenerSupernodo() async {
     print(
         'Conetado com o supernodo: ${socketClient.remoteAddress.address}:${socketClient.remotePort}');
 

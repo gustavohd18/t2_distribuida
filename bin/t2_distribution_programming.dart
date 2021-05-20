@@ -1,8 +1,59 @@
+import 'dart:convert';
+
 import 'package:t2_distribution_programming/ClientToServer.dart';
 import 'package:t2_distribution_programming/client/Client.dart';
 import 'package:t2_distribution_programming/client/MessageClient.dart';
 import 'package:t2_distribution_programming/server/Server.dart';
 import 'dart:io';
+
+void terminalInteractive(Client client) async {
+  while (true) {
+    print('=======================');
+    print('Bem vindo ao FilesLand');
+    print('1: Visualizar arquivos disponivel para download');
+    print('2: solicitar download');
+    print('=======================');
+    var line = stdin.readLineSync(encoding: Encoding.getByName('utf-8'));
+    var option = int.parse(line.trim());
+    switch (option) {
+      case 1:
+        {
+          final messageExample = MessageClient('REQUEST_LIST_FILES', []);
+          await client.sendMessageStringToSupernodo(messageExample);
+        }
+        break;
+      case 2:
+        {
+          //precisa mapear para de  alguma forma mandar o arquivo que escolheu  seja via option ou algo  assim
+          //provavelmente armazenar em uma lista todos os recebidos na lib client
+          final messageData = MessageClient('REQUEST_PEER', 'disneytorrent');
+          await client.sendMessageStringToSupernodo(messageData);
+        }
+        break;
+      default:
+        {
+          print('Valor não mapeado');
+        }
+        break;
+    }
+  }
+}
+
+void sendFilesToServerFromClient(Client client, String patch) async {
+  // ### FILE HASH ### //
+  final clientFilesList = await client.getHash(patch);
+  for (String s in clientFilesList) {
+    print(s);
+  }
+
+  final clientData = ClientToServer(
+      client.id, client.ip, client.availablePort, clientFilesList, 0);
+
+  final messageDataClient = MessageClient('JOIN', clientData);
+
+  await client.sendMessageStringToSupernodo(messageDataClient);
+  client.heartbeatClient();
+}
 
 void main(List<String> args) async {
   if (args.length < 3) {
@@ -47,24 +98,8 @@ void main(List<String> args) async {
     final files = <String>['disneyorrenr', 'netflixfilmetorren'];
     final client = Client('same4', socket, '0.0.0.0', 8089);
     client.listenerSupernodo();
-    // ### FILE HASH ### //
-    final clientFilesList = await client.getHash(args[3]);
-    for (String s in clientFilesList) {
-      print(s);
-    }
-    //exemplo envio dos dados do client
-    final clientData =
-        ClientToServer(client.id, client.ip, client.availablePort, files, 0);
-
-    final messageDataClient = MessageClient('JOIN', clientData);
-
-    await client.sendMessageStringToSupernodo(messageDataClient);
-    client.heartbeatClient();
-    //exemplo por enquanto envia um request mas isso estara num listener
-    final messageExample = MessageClient('REQUEST_LIST_FILES', []);
-    await client.sendMessageStringToSupernodo(messageExample);
-    final messageData = MessageClient('REQUEST_PEER', 'disneytorrent');
-    await Future.delayed(Duration(seconds: 30));
-    await client.sendMessageStringToSupernodo(messageData);
+    //dispara a future para lidar com a leitura dos arquivos
+    sendFilesToServerFromClient(client, args[3]);
+    terminalInteractive(client);
   }
 }
