@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -46,6 +47,7 @@ class Client {
                 messageObject.data['ip'],
                 messageObject.data['availablePort'],
                 list,
+                0
               );
               print('data ${clientObject.ip}  ${clientObject.availablePort}');
             }
@@ -70,6 +72,14 @@ class Client {
         socketClient.destroy();
       },
     );
+  }
+
+  void heartbeatClient() async {
+    const fiveSec = Duration(seconds: 5);
+    Timer.periodic(
+        fiveSec,
+        (Timer t) =>
+            sendMessageStringToSupernodo(MessageClient('HEARTBEAT_CLIENT', id)));
   }
 
   Future<void> sendMessageStringToSupernodo(MessageClient messageClient) async {

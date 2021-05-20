@@ -7,6 +7,8 @@ import 'package:t2_distribution_programming/client/MessageClient.dart';
 import 'package:udp/udp.dart';
 import 'package:mutex/mutex.dart';
 
+//HeartBeat Client mesma coisa do que no server mas usando os sockets que ele tem para
+//enviar
 class HeartbeatServer {
   final String id;
   int time;
@@ -65,7 +67,7 @@ class Server {
         case 'HEARTBEAT_SERVER':
           {
             final String idData = messageObject.data;
-            print('HeartBeat come from $idData');
+            print('HeartBeat server come from $idData');
             resetTimeToServer(idData);
           }
           break;
@@ -108,6 +110,7 @@ class Server {
               messageObject.data['ip'],
               messageObject.data['availablePort'],
               list,
+              0
             );
             client_found = clientObject;
           }
@@ -164,6 +167,7 @@ class Server {
                 messageObject.data['ip'],
                 messageObject.data['availablePort'],
                 list,
+                0
               );
               await addNodo(clientObject);
               final message = MessageClient('REGISTER', []);
@@ -187,7 +191,7 @@ class Server {
                  var encodedMessage = jsonEncode(messageWithFile);
                 client.write(encodedMessage);
               } else {
-                //O arquivo estava na minha pasta
+                //O arquivo estava na minha lista
                 final message =
                     MessageClient('RESPONSE_CLIENT_WITH_DATA', hasClient);
                 var encodedMessage = jsonEncode(message);
@@ -195,6 +199,14 @@ class Server {
               }
             }
             break;
+
+          case 'HEARTBEAT_CLIENT':
+          {
+            final String idData = messageObject.data;
+            print('HeartBeat Client come from $idData');
+            resetTimeToClients(idData);   
+          }
+          break;
 
           default:
             {
@@ -220,7 +232,6 @@ class Server {
   }
 
   Future<List<String>> getFiles() async {
-    //adicionar mutex para pegar da lista
     await m.acquireRead();
     try {
       // ignore: omit_local_variable_types
@@ -296,17 +307,13 @@ class Server {
   }
 
   void addClient(Socket client) async {
-    //adicionar semaforo ou mutex aqui
     await m.acquireWrite();
-    // No other locks (read or write) can be acquired until released
     try {
       // sessao critica
       if (clients.isEmpty) {
-        print('Adicionei o socket do primeiro nodo');
         clients.add(client);
       } else {
         if (!clients.contains(client)) {
-          print('Adicionei o socket do nodo');
           clients.add(client);
         }
       }
@@ -320,11 +327,9 @@ class Server {
     try {
       // sessao critica
       if (clients_info.isEmpty) {
-        print('Adicionei os dados do primeiro nodo');
         clients_info.add(client);
       } else {
         if (!clients_info.contains(client)) {
-          print('Adicionei os dados do nodo');
           clients_info.add(client);
         }
       }
@@ -370,6 +375,74 @@ class Server {
     }
   }
 
+
+  Future<bool> hasClient(String id) async {
+    await m.acquireRead();
+    try {
+      for (var i = 0; i < clients_info.length; i++) {
+        if (clients_info[i].id == id) {
+          return true;
+        }
+      }
+      return false;
+    } finally {
+      m.release();
+    }
+  }
+
+  Future<List<ClientToServer>> getClients() async {
+    await m.acquireRead();
+    try {
+      return clients_info;
+    } finally {
+      m.release();
+    }
+  }
+
+  void resetTimeToClients(String id) async {
+    await m.acquireWrite();
+    try {
+      if (clients_info.isNotEmpty) {
+        for (var i = 0; i < clients_info.length; i++) {
+          if(clients_info[i].id == id) {
+            clients_info[i].time = 0;
+          }
+        }
+      }
+    } finally {
+      m.release();
+    }
+  }
+
+  void removeClients() async {
+    await m.acquireWrite();
+    try {
+      if (clients_info.isNotEmpty) {
+        final size = clients_info.length;
+        for (var i = 0; i < size; i++) {
+          if (clients_info[i].time > 4) {
+            clients_info.remove(clients_info[i]);
+          }
+        }
+      }
+    } finally {
+      m.release();
+    }
+  }
+
+  void incrementTimeClients() async {
+    await m.acquireWrite();
+    try {
+      if (clients_info.isNotEmpty) {
+        for (var i = 0; i < clients_info.length; i++) {
+          clients_info[i].time++;
+        }
+      }
+    } finally {
+      m.release();
+    }
+  }
+
   Future<bool> hasServer(String id) async {
     await m.acquireRead();
     try {
@@ -398,7 +471,9 @@ class Server {
     try {
       if (servers.isNotEmpty) {
         for (var i = 0; i < servers.length; i++) {
-          servers[i].time = 0;
+          if(servers[i].id == id){
+            servers[i].time = 0;
+          }
         }
       }
     } finally {
@@ -479,5 +554,15 @@ class Server {
   void removeServeWithNoResponse() async {
     const fiveSec = Duration(seconds: 15);
     Timer.periodic(fiveSec, (Timer t) => removeServers());
+  }
+
+  void incrementTimeToClients() async {
+    const fiveSec = Duration(seconds: 10);
+    Timer.periodic(fiveSec, (Timer t) => incrementTimeClients());
+  }
+
+  void removeClientsWithNoResponse() async {
+    const fiveSec = Duration(seconds: 15);
+    Timer.periodic(fiveSec, (Timer t) => removeClients());
   }
 }
