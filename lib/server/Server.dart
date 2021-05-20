@@ -276,7 +276,9 @@ class Server {
     final list = client_found;
     final messageWithFile = MessageClient('RESPONSE_CLIENT_WITH_DATA', list);
     var encodedMessage = jsonEncode(messageWithFile);
-    client.write(encodedMessage);
+    if(client != null) {
+        client.write(encodedMessage);
+    }
   }
 
   Future<List<String>> sendFiles() async {

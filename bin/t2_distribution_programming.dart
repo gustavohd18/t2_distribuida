@@ -116,8 +116,8 @@ void main(List<String> args) async {
     final messageExample = MessageClient('REQUEST_LIST_FILES', []);
     await client.sendMessageStringToSupernodo(messageExample);
     await Future.delayed(Duration(seconds: 12));
-    final messageData = MessageClient('REQUEST_PEER', '/Users/gustavoduarte/Desktop/files/ola.txt;6098117170405848868c76fc081d72942711b0016c5828781b75c682c9914b75');
-    await client.sendMessageStringToSupernodo(messageData);
+  //  final messageData = MessageClient('REQUEST_PEER', '/Users/gustavoduarte/Desktop/files/ola.txt;6098117170405848868c76fc081d72942711b0016c5828781b75c682c9914b75');
+   // await client.sendMessageStringToSupernodo(messageData);
     //pproblema com o terminal
     // terminalInteractive(client);
   }
