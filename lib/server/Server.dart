@@ -7,8 +7,6 @@ import 'package:t2_distribution_programming/client/MessageClient.dart';
 import 'package:udp/udp.dart';
 import 'package:mutex/mutex.dart';
 
-//HeartBeat Client mesma coisa do que no server mas usando os sockets que ele tem para
-//enviar
 class HeartbeatServer {
   final String id;
   int time;
@@ -40,35 +38,41 @@ class Server {
       switch (messageObject.message) {
         case 'JOIN':
           {
-            final String idData = messageObject.data;
-            final time = 0;
-            var heartbeatServer = HeartbeatServer(idData, time);
-            final hasData = await hasServer(idData);
-            if (!hasData) {
-              addServer(heartbeatServer);
-              final message = MessageClient('PRESENT_IN_NETWORK', id);
-              await sendPackageToMulticast(message);
+            if (messageObject.data != null) {
+              final String idData = messageObject.data;
+              final time = 0;
+              var heartbeatServer = HeartbeatServer(idData, time);
+              final hasData = await hasServer(idData);
+              if (!hasData) {
+                addServer(heartbeatServer);
+                final message = MessageClient('PRESENT_IN_NETWORK', id);
+                await sendPackageToMulticast(message);
+              }
             }
           }
           break;
 
         case 'PRESENT_IN_NETWORK':
           {
-            final String idData = messageObject.data;
-            final time = 0;
-            var heartbeatServer = HeartbeatServer(idData, time);
-            final hasData = await hasServer(idData);
-            if (!hasData) {
-              addServer(heartbeatServer);
+            if (messageObject.data != null) {
+              final String idData = messageObject.data;
+              final time = 0;
+              var heartbeatServer = HeartbeatServer(idData, time);
+              final hasData = await hasServer(idData);
+              if (!hasData) {
+                addServer(heartbeatServer);
+              }
             }
           }
           break;
 
         case 'HEARTBEAT_SERVER':
           {
-            final String idData = messageObject.data;
-            print('HeartBeat server come from $idData');
-            resetTimeToServer(idData);
+            if (messageObject.data != null) {
+              final String idData = messageObject.data;
+              print('HeartBeat server come from $idData');
+              resetTimeToServer(idData);
+            }
           }
           break;
 
@@ -86,33 +90,38 @@ class Server {
           {
             //incrementa o valor pois alguem respondeu e envia como  array via multicast
             //todos seus arquivos
-            final files = messageObject.data.cast<String>();
-            addFilesFromSupernodo(files);
+            if (messageObject.data != null) {
+              final files = messageObject.data.cast<String>();
+              addFilesFromSupernodo(files);
+            }
           }
           break;
 
         case 'WHO_HAVE_THIS_FILE':
           {
-            final nameFile = messageObject.data;
-            final client = await getClientFromFile(nameFile);
-            if (client != null) {
-              final message = MessageClient('GET_FILE', client);
-              await sendPackageToMulticast(message);
+            if (messageObject.data != null) {
+              final nameFile = messageObject.data;
+              final client = await getClientFromFile(nameFile);
+              if (client != null) {
+                final message = MessageClient('GET_FILE', client);
+                await sendPackageToMulticast(message);
+              }
             }
           }
           break;
         case 'GET_FILE':
           {
-            //revisitar isso para deixar melhor pois passamos todos
-            var list = messageObject.data['files'].cast<String>();
-            final clientObject = ClientToServer(
-              messageObject.data['id'],
-              messageObject.data['ip'],
-              messageObject.data['availablePort'],
-              list,
-              0
-            );
-            client_found = clientObject;
+            if (messageObject.data != null) {
+              //revisitar isso para deixar melhor pois passamos todos os hashs
+              var list = messageObject.data['files'].cast<String>();
+              final clientObject = ClientToServer(
+                  messageObject.data['id'],
+                  messageObject.data['ip'],
+                  messageObject.data['availablePort'],
+                  list,
+                  0);
+              client_found = clientObject;
+            }
           }
           break;
         default:
@@ -136,7 +145,6 @@ class Server {
         switch (messageObject.message) {
           case 'REQUEST_LIST_FILES':
             {
-              //nao tem só 1 supernodo na rede
               final list = await getServers();
               if (list.length > 1) {
                 final message = MessageClient('REQUEST_FILES_PEERS', []);
@@ -159,54 +167,58 @@ class Server {
 
           case 'JOIN':
             {
-              //adiciona client para a lista de client converter os dados
-              //precisa realizar o cast
-              final list = messageObject.data['files'].cast<String>();
-              final clientObject = ClientToServer(
-                messageObject.data['id'],
-                messageObject.data['ip'],
-                messageObject.data['availablePort'],
-                list,
-                0
-              );
-              await addNodo(clientObject);
-              final message = MessageClient('REGISTER', []);
-              var encodedMessage = jsonEncode(message);
-              print(encodedMessage);
-              client.write(encodedMessage);
-            }
-            break;
-
-          case 'REQUEST_PEER':
-            {
-              final hasClient = await getClientFromFile(messageObject.data);
-              if (hasClient == null) {
-                final message =
-                    MessageClient('WHO_HAVE_THIS_FILE', messageObject.data);
-                await sendPackageToMulticast(message);
-                //manda processar a thead para responder depois
-                processRequestClient(client);
-                //manda mensagem que recebeu a solicitacao
-                 final messageWithFile = MessageClient('PROCESSING_REQUEST', []);
-                 var encodedMessage = jsonEncode(messageWithFile);
-                client.write(encodedMessage);
-              } else {
-                //O arquivo estava na minha lista
-                final message =
-                    MessageClient('RESPONSE_CLIENT_WITH_DATA', hasClient);
+              if (messageObject.data != null) {
+                final list = messageObject.data['files'].cast<String>();
+                final clientObject = ClientToServer(
+                    messageObject.data['id'],
+                    messageObject.data['ip'],
+                    messageObject.data['availablePort'],
+                    list,
+                    0);
+                await addNodo(clientObject);
+                final message = MessageClient('REGISTER', []);
                 var encodedMessage = jsonEncode(message);
+                print(encodedMessage);
                 client.write(encodedMessage);
               }
             }
             break;
 
+          case 'REQUEST_PEER':
+            {
+              if (messageObject.data != null) {
+                final hasClient = await getClientFromFile(messageObject.data);
+                if (hasClient == null) {
+                  final message =
+                      MessageClient('WHO_HAVE_THIS_FILE', messageObject.data);
+                  await sendPackageToMulticast(message);
+                  //manda processar a thead para responder depois
+                  processRequestClient(client);
+                  //manda mensagem que recebeu a solicitacao
+                  final messageWithFile =
+                      MessageClient('PROCESSING_REQUEST', []);
+                  var encodedMessage = jsonEncode(messageWithFile);
+                  client.write(encodedMessage);
+                } else {
+                  //O arquivo estava na minha lista
+                  final message =
+                      MessageClient('RESPONSE_CLIENT_WITH_DATA', hasClient);
+                  var encodedMessage = jsonEncode(message);
+                  client.write(encodedMessage);
+                }
+              }
+            }
+            break;
+
           case 'HEARTBEAT_CLIENT':
-          {
-            final String idData = messageObject.data;
-            print('HeartBeat Client come from $idData');
-            resetTimeToClients(idData);   
-          }
-          break;
+            {
+              if (messageObject.data != null) {
+                final String idData = messageObject.data;
+                print('HeartBeat Client come from $idData');
+                resetTimeToClients(idData);
+              }
+            }
+            break;
 
           default:
             {
@@ -249,13 +261,13 @@ class Server {
   }
 
   void processRequestFiles(Socket client) async {
-    //TODO precisa limpar a lista de alguma forma apos o envio
     //por enquanto assumimos que em 6 segundos vai responder todo mundo na rede
     await Future.delayed(Duration(seconds: 6));
     final list = await sendFiles();
     final messageWithFile = MessageClient('RESPONSE_LIST', list);
     var encodedMessage = jsonEncode(messageWithFile);
     client.write(encodedMessage);
+    await resetListOfFilesFromSupernodo();
   }
 
   void processRequestClient(Socket client) async {
@@ -352,7 +364,7 @@ class Server {
     await m.acquireWrite();
     try {
       // sessao critica
-      filesToSend = [];
+      filesToSend.clear();
     } finally {
       m.release();
     }
@@ -374,7 +386,6 @@ class Server {
       m.release();
     }
   }
-
 
   Future<bool> hasClient(String id) async {
     await m.acquireRead();
@@ -402,9 +413,9 @@ class Server {
   void resetTimeToClients(String id) async {
     await m.acquireWrite();
     try {
-      if (clients_info.isNotEmpty) {
+      if (clients_info.isNotEmpty && id.isNotEmpty) {
         for (var i = 0; i < clients_info.length; i++) {
-          if(clients_info[i].id == id) {
+          if (clients_info[i].id == id) {
             clients_info[i].time = 0;
           }
         }
@@ -471,7 +482,7 @@ class Server {
     try {
       if (servers.isNotEmpty) {
         for (var i = 0; i < servers.length; i++) {
-          if(servers[i].id == id){
+          if (servers[i].id == id) {
             servers[i].time = 0;
           }
         }
@@ -547,22 +558,22 @@ class Server {
   }
 
   void incrementTimeServer() async {
-    const fiveSec = Duration(seconds: 10);
+    const fiveSec = Duration(seconds: 5);
     Timer.periodic(fiveSec, (Timer t) => incrementServers());
   }
 
   void removeServeWithNoResponse() async {
-    const fiveSec = Duration(seconds: 15);
-    Timer.periodic(fiveSec, (Timer t) => removeServers());
+    const sec = Duration(seconds: 15);
+    Timer.periodic(sec, (Timer t) => removeServers());
   }
 
   void incrementTimeToClients() async {
-    const fiveSec = Duration(seconds: 10);
+    const fiveSec = Duration(seconds: 5);
     Timer.periodic(fiveSec, (Timer t) => incrementTimeClients());
   }
 
   void removeClientsWithNoResponse() async {
-    const fiveSec = Duration(seconds: 15);
-    Timer.periodic(fiveSec, (Timer t) => removeClients());
+    const sec = Duration(seconds: 15);
+    Timer.periodic(sec, (Timer t) => removeClients());
   }
 }

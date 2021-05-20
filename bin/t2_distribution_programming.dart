@@ -30,6 +30,8 @@ void main(List<String> args) async {
     supernode.heartbeatServer();
     supernode.incrementTimeServer();
     supernode.removeServeWithNoResponse();
+    supernode.incrementTimeToClients();
+    supernode.removeClientsWithNoResponse();
     // sempre que um supernodo entra na rede ele envia uma msg do tipo join
     final message = MessageClient('JOIN', id);
     await supernode.sendPackageToMulticast(message);
@@ -43,8 +45,8 @@ void main(List<String> args) async {
 
     final socket = await Socket.connect(args[2], port);
     // precisa adicionar parametro por linha de comando para o id e o proprio ip e propria porta disponivel
-    final files = <String>['disney2torrent', 'netflix2filmetorrent'];
-    final client = Client('same3', socket, '0.0.0.0', 8089);
+    final files = <String>['disneyorrenr', 'netflixfilmetorren'];
+    final client = Client('same4', socket, '0.0.0.0', 8089);
     client.listenerSupernodo();
     //exemplo envio dos dados do client
     final clientData =

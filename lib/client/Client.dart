@@ -29,8 +29,10 @@ class Client {
         switch (messageObject.message) {
           case 'RESPONSE_LIST':
             {
-              final list = messageObject.data.cast<String>();
-              print(list);
+              if (messageObject.data != null) {
+                final list = messageObject.data.cast<String>();
+                print(list);
+              }
             }
             break;
 
@@ -41,15 +43,16 @@ class Client {
             break;
           case 'RESPONSE_CLIENT_WITH_DATA':
             {
-              final list = messageObject.data['files'].cast<String>();
-              final clientObject = ClientToServer(
-                messageObject.data['id'],
-                messageObject.data['ip'],
-                messageObject.data['availablePort'],
-                list,
-                0
-              );
-              print('data ${clientObject.ip}  ${clientObject.availablePort}');
+              if (messageObject.data != null) {
+                final list = messageObject.data['files'].cast<String>();
+                final clientObject = ClientToServer(
+                    messageObject.data['id'],
+                    messageObject.data['ip'],
+                    messageObject.data['availablePort'],
+                    list,
+                    0);
+                print('data ${clientObject.ip}  ${clientObject.availablePort}');
+              }
             }
             break;
 
@@ -78,8 +81,8 @@ class Client {
     const fiveSec = Duration(seconds: 5);
     Timer.periodic(
         fiveSec,
-        (Timer t) =>
-            sendMessageStringToSupernodo(MessageClient('HEARTBEAT_CLIENT', id)));
+        (Timer t) => sendMessageStringToSupernodo(
+            MessageClient('HEARTBEAT_CLIENT', id)));
   }
 
   Future<void> sendMessageStringToSupernodo(MessageClient messageClient) async {
