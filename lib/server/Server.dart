@@ -146,7 +146,7 @@ class Server {
           case 'REQUEST_LIST_FILES':
             {
               final list = await getServers();
-              if (list.length > 0) {
+              if (list.length > 1) {
                 final message = MessageClient('REQUEST_FILES_PEERS', []);
                 await sendPackageToMulticast(message);
                 //manda processar a thead para responder depois
