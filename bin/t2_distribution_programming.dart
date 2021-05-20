@@ -89,23 +89,36 @@ void main(List<String> args) async {
     final message = MessageClient('JOIN', id);
     await supernode.sendPackageToMulticast(message);
   } else if (args[0] == 'nodo') {
-    if (args.length < 4) {
+    if (args.length < 7) {
       print(
-          'Formato [<nodo> <porta do supernodo> <ip do supernodo> <path dos files>]');
+          'Formato [<nodo> <porta do supernodo> <ip do supernodo> <porta disponivel> <id> <path dos arquivos> <path para  salvar os arquivos>]');
       return;
     }
 
     final socket = await Socket.connect(args[2], port);
     // precisa adicionar parametro por linha de comando para o id e o proprio ip e propria porta disponivel
-    final files = <String>['disneyorrenr', 'netflixfilmetorren'];
-    final client = Client('same4', socket, '0.0.0.0', 8089);
-    //exemplo de como mandar um arquivo cada client ira abrir seu servir e ao solicitar um arquivo dele 
+    final id = args[4];
+    final ip = interface.addresses[0];
+    final portFree = int.parse(args[3]);
+    final pathToSaveFiles = args[6];
+    final serverToReceiveFiles = await ServerSocket.bind(ip, portFree);
+    final client = Client(id, socket, ip.address, portFree,
+        serverToReceiveFiles, pathToSaveFiles);
+    //exemplo de como mandar um arquivo cada client ira abrir seu servir e ao solicitar um arquivo dele
     //ira criar um socket normal o client que oslicitou para assim baixar o arquivo
     //var bytes = await new File('/Users/gustavoduarte/Desktop/files/salacleanold.pddl').readAsBytes();
     //socket.add(bytes);
     client.listenerSupernodo();
+    client.listenerToDownload();
     //dispara a future para lidar com a leitura dos arquivos
-    sendFilesToServerFromClient(client, args[3]);
-    await terminalInteractive(client);
+    sendFilesToServerFromClient(client, args[5]);
+    await Future.delayed(Duration(seconds: 10));
+    final messageExample = MessageClient('REQUEST_LIST_FILES', []);
+    await client.sendMessageStringToSupernodo(messageExample);
+    await Future.delayed(Duration(seconds: 12));
+    final messageData = MessageClient('REQUEST_PEER', '/Users/gustavoduarte/Desktop/files/ola.txt;6098117170405848868c76fc081d72942711b0016c5828781b75c682c9914b75');
+    await client.sendMessageStringToSupernodo(messageData);
+    //pproblema com o terminal
+    // terminalInteractive(client);
   }
 }

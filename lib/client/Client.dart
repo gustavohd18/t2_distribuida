@@ -11,9 +11,12 @@ class Client {
   final String id;
   final String ip;
   final int availablePort;
+  final String patchToSaveFiles;
   List<String> files;
   final Socket socketClient;
-  Client(this.id, this.socketClient, this.ip, this.availablePort);
+  final ServerSocket socketToReceiveFiles;
+  Client(this.id, this.socketClient, this.ip, this.availablePort,
+      this.socketToReceiveFiles, this.patchToSaveFiles);
 
   Future<List<String>> getHash(filesPath) async {
     /*
@@ -72,10 +75,13 @@ class Client {
                     list,
                     0);
                 print('data ${clientObject.ip}  ${clientObject.availablePort}');
+                //mock  para teste mas precisa saber como pegar o arquivo  certo para mandar tem que virda solicitacao do user
+                sendFile(clientObject.ip, clientObject.availablePort,
+                    '/Users/gustavoduarte/Desktop/files/ola.txt');
               }
             }
             break;
-            
+
           case 'REGISTER':
             {
               print('recebido o registro');
@@ -97,6 +103,36 @@ class Client {
     );
   }
 
+  void handleConnectionDownload(Socket client) {
+    print('Connection from'
+        ' ${client.remoteAddress.address}:${client.remotePort}');
+    client.listen(
+      (Uint8List data) async {
+        var builder = BytesBuilder(copy: false);
+        builder.add(data);
+
+        var dt = builder.takeBytes();
+        //como pegar o nome do arquivo
+        final filename = 'ola21.txt';
+
+        await writeToFile(dt.buffer.asByteData(0, dt.buffer.lengthInBytes),
+            '$patchToSaveFiles/$filename');
+      },
+
+      // handle errors
+      onError: (error) {
+        print(error);
+        client.close();
+      },
+
+      // handle the client closing the connection
+      onDone: () {
+        print('Conexao encerrada supernodo caiu');
+        client.close();
+      },
+    );
+  }
+
   void heartbeatClient() async {
     const fiveSec = Duration(seconds: 5);
     Timer.periodic(
@@ -110,5 +146,23 @@ class Client {
     var encodedMessage = jsonEncode(messageClient);
     print('Nodo: $encodedMessage');
     socketClient.write(encodedMessage);
+  }
+
+  Future<void> writeToFile(ByteData data, String path) {
+    final buffer = data.buffer;
+    return File(path).writeAsBytes(
+        buffer.asUint8List(data.offsetInBytes, data.lengthInBytes));
+  }
+
+  void listenerToDownload() async {
+    await socketToReceiveFiles.listen((client) {
+      handleConnectionDownload(client);
+    });
+  }
+
+  void sendFile(String ipToSend, int port, String patchWithFile) async {
+    final socket = await Socket.connect(ipToSend, port);
+    var bytes = await File(patchWithFile).readAsBytes();
+    socket.add(bytes);
   }
 }
