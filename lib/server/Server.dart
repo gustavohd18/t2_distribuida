@@ -146,7 +146,7 @@ class Server {
           case 'REQUEST_LIST_FILES':
             {
               final list = await getServers();
-              if (list.length > 1) {
+              if (list.length > 0) {
                 final message = MessageClient('REQUEST_FILES_PEERS', []);
                 await sendPackageToMulticast(message);
                 //manda processar a thead para responder depois
@@ -232,13 +232,11 @@ class Server {
       // handle errors
       onError: (error) {
         print(error);
-        client.close();
       },
 
       // handle the client closing the connection
       onDone: () {
-        print('Conexao encerrada supernodo caiu');
-        client.close();
+        print('Conexao encerrada nodo caiu');
       },
     );
   }
@@ -276,9 +274,7 @@ class Server {
     final list = client_found;
     final messageWithFile = MessageClient('RESPONSE_CLIENT_WITH_DATA', list);
     var encodedMessage = jsonEncode(messageWithFile);
-    if(client != null) {
-        client.write(encodedMessage);
-    }
+    client.write(encodedMessage);
   }
 
   Future<List<String>> sendFiles() async {
