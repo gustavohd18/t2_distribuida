@@ -40,6 +40,7 @@ void terminalInteractive(Client client) async {
 }
 
 void sendFilesToServerFromClient(Client client, String patch) async {
+  print('Processando o mapeamento da pasta informada');
   // ### FILE HASH ### //
   final clientFilesList = await client.getHash(patch);
   for (String s in clientFilesList) {
@@ -53,6 +54,7 @@ void sendFilesToServerFromClient(Client client, String patch) async {
 
   await client.sendMessageStringToSupernodo(messageDataClient);
   client.heartbeatClient();
+  print('Mapeamento encerrado');
 }
 
 void main(List<String> args) async {
@@ -97,9 +99,13 @@ void main(List<String> args) async {
     // precisa adicionar parametro por linha de comando para o id e o proprio ip e propria porta disponivel
     final files = <String>['disneyorrenr', 'netflixfilmetorren'];
     final client = Client('same4', socket, '0.0.0.0', 8089);
+    //exemplo de como mandar um arquivo cada client ira abrir seu servir e ao solicitar um arquivo dele 
+    //ira criar um socket normal o client que oslicitou para assim baixar o arquivo
+    //var bytes = await new File('/Users/gustavoduarte/Desktop/files/salacleanold.pddl').readAsBytes();
+    //socket.add(bytes);
     client.listenerSupernodo();
     //dispara a future para lidar com a leitura dos arquivos
     sendFilesToServerFromClient(client, args[3]);
-    terminalInteractive(client);
+    await terminalInteractive(client);
   }
 }
