@@ -7,6 +7,21 @@ import 'package:crypto/crypto.dart';
 import 'package:t2_distribution_programming/ClientToServer.dart';
 import 'package:t2_distribution_programming/client/MessageClient.dart';
 
+class FilePath {
+  final String filename;
+  final Uint8List path;
+  FilePath(this.filename, this.path);
+
+  FilePath.fromJson(Map<String, dynamic> json)
+      : filename = json['filename'],
+        path = json['path'];
+
+  Map<String, dynamic> toJson() => {
+        'filename': filename,
+        'path': path,
+      };
+}
+
 class Client {
   final String id;
   final String ip;
@@ -108,12 +123,17 @@ class Client {
         ' ${client.remoteAddress.address}:${client.remotePort}');
     client.listen(
       (Uint8List data) async {
-        var builder = BytesBuilder(copy: false);
-        builder.add(data);
+        final object = String.fromCharCodes(data);
+        Map<String, dynamic> decodedMessage = jsonDecode(object);
+        print(object);
+        final fileObject =
+            FilePath(decodedMessage['filename'], decodedMessage['path']);
 
+        var builder = BytesBuilder(copy: false);
+        builder.add(fileObject.path);
         var dt = builder.takeBytes();
         //como pegar o nome do arquivo
-        final filename = 'ola21.txt';
+        final filename = fileObject.filename;
 
         await writeToFile(dt.buffer.asByteData(0, dt.buffer.lengthInBytes),
             '$patchToSaveFiles/$filename');
@@ -161,8 +181,12 @@ class Client {
   }
 
   void sendFile(String ipToSend, int port, String patchWithFile) async {
+    String sep = Platform.isWindows ? "\\" : "/";
+    String fileName = patchWithFile.split(sep).last;
+    print("OLHA O NOME DO ARQUIVO: $fileName");
     final socket = await Socket.connect(ipToSend, port);
     var bytes = await File(patchWithFile).readAsBytes();
-    socket.add(bytes);
+    var file = FilePath(fileName, bytes);
+    socket.write(file);
   }
 }
