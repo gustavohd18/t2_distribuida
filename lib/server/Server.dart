@@ -39,6 +39,7 @@ class Server {
         case 'JOIN':
           {
             if (messageObject.data != null) {
+              print('JOIN SERVER message');
               final String idData = messageObject.data;
               final time = 0;
               var heartbeatServer = HeartbeatServer(idData, time);
@@ -55,6 +56,7 @@ class Server {
         case 'PRESENT_IN_NETWORK':
           {
             if (messageObject.data != null) {
+              print('PRESENT_IN_NETWORK SERVER message');
               final String idData = messageObject.data;
               final time = 0;
               var heartbeatServer = HeartbeatServer(idData, time);
@@ -80,6 +82,7 @@ class Server {
           {
             //incrementa o valor pois alguem respondeu e envia como  array via multicast
             //todos seus arquivos
+            print('REQUEST_FILES_PEERS SERVER message');
             final file = await getFiles();
             final message = MessageClient('RESPONSE_FILES', file);
             await sendPackageToMulticast(message);
@@ -91,6 +94,7 @@ class Server {
             //incrementa o valor pois alguem respondeu e envia como  array via multicast
             //todos seus arquivos
             if (messageObject.data != null) {
+              print('RESPONSE_FILES SERVER message');
               final files = messageObject.data.cast<String>();
               addFilesFromSupernodo(files);
             }
@@ -100,10 +104,13 @@ class Server {
         case 'WHO_HAVE_THIS_FILE':
           {
             if (messageObject.data != null) {
+              print('WHO_HAVE_THIS_FILE SERVER message');
               final nameFile = messageObject.data;
               final client = await getClientFromFile(nameFile);
               if (client != null) {
-                final message = MessageClient('GET_FILE', client);
+                final clientSend = ClientToServer(client.id, client.ip,
+                      client.availablePort, [messageObject.data], 0);
+                final message = MessageClient('GET_FILE', clientSend);
                 await sendPackageToMulticast(message);
               }
             }
@@ -112,7 +119,8 @@ class Server {
         case 'GET_FILE':
           {
             if (messageObject.data != null) {
-              //revisitar isso para deixar melhor pois passamos todos os hashs
+              print('GET_FILE SERVER message');
+              //ja passamos somente 1 hash
               var list = messageObject.data['files'].cast<String>();
               final clientObject = ClientToServer(
                   messageObject.data['id'],
@@ -145,6 +153,7 @@ class Server {
         switch (messageObject.message) {
           case 'REQUEST_LIST_FILES':
             {
+              print('REQUEST LIST FILES message');
               final list = await getServers();
               if (list.length > 1) {
                 final message = MessageClient('REQUEST_FILES_PEERS', []);
@@ -168,6 +177,7 @@ class Server {
           case 'JOIN':
             {
               if (messageObject.data != null) {
+                print('JOIN MESSAGE');
                 final list = messageObject.data['files'].cast<String>();
                 final clientObject = ClientToServer(
                     messageObject.data['id'],
@@ -187,6 +197,7 @@ class Server {
           case 'REQUEST_PEER':
             {
               if (messageObject.data != null) {
+                print('REQUEST_PEER MESSAGE');
                 final hasClient = await getClientFromFile(messageObject.data);
                 if (hasClient == null) {
                   final message =
@@ -201,8 +212,10 @@ class Server {
                   client.write(encodedMessage);
                 } else {
                   //O arquivo estava na minha lista
+                  final clientSend = ClientToServer(hasClient.id, hasClient.ip,
+                      hasClient.availablePort, [messageObject.data], 0);
                   final message =
-                      MessageClient('RESPONSE_CLIENT_WITH_DATA', hasClient);
+                      MessageClient('RESPONSE_CLIENT_WITH_DATA', clientSend);
                   var encodedMessage = jsonEncode(message);
                   client.write(encodedMessage);
                 }
@@ -213,6 +226,7 @@ class Server {
           case 'HEARTBEAT_CLIENT':
             {
               if (messageObject.data != null) {
+                print('HEARTBEAT_CLIENT MESSAGE');
                 final String idData = messageObject.data;
                 print('HeartBeat Client come from $idData');
                 resetTimeToClients(idData);
@@ -418,7 +432,7 @@ class Server {
   void resetTimeToClients(String id) async {
     await m.acquireWrite();
     try {
-      final lst = await getClients();
+      final lst = clients_info;
       if (lst.isNotEmpty && id.isNotEmpty) {
         for (var i = 0; i < lst.length; i++) {
           if (lst[i].id == id) {
@@ -434,7 +448,7 @@ class Server {
   void removeClients() async {
     await m.acquireWrite();
     try {
-      final lst = await getClients();
+      final lst = clients_info;
       if (lst.isNotEmpty) {
         final size = lst.length;
         for (var i = 0; i < size; i++) {
@@ -451,7 +465,7 @@ class Server {
   void incrementTimeClients() async {
     await m.acquireWrite();
     try {
-      final lst = await getClients();
+      final lst = clients_info;
       if (lst.isNotEmpty) {
         for (var i = 0; i < lst.length; i++) {
           lst[i].time++;

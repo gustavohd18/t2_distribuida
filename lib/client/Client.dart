@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -9,7 +10,7 @@ import 'package:t2_distribution_programming/client/MessageClient.dart';
 
 class FilePath {
   final String filename;
-  final Uint8List path;
+  final dynamic path;
   FilePath(this.filename, this.path);
 
   FilePath.fromJson(Map<String, dynamic> json)
@@ -30,6 +31,7 @@ class Client {
   List<String> files;
   final Socket socketClient;
   final ServerSocket socketToReceiveFiles;
+  HashMap<String, String> hashAndFile = HashMap<String, String>();
   Client(this.id, this.socketClient, this.ip, this.availablePort,
       this.socketToReceiveFiles, this.patchToSaveFiles);
 
@@ -45,7 +47,8 @@ class Client {
       List<FileSystemEntity> contents = filesDir.listSync(recursive: false);
       for (File file in contents) {
         Digest digest = await (sha256.bind(file.openRead())).first;
-        hashFileList.add(file.path + ";" + digest.toString());
+        hashFileList.add(digest.toString());
+        hashAndFile[digest.toString()] = file.path;
       }
       return hashFileList;
     }
@@ -57,7 +60,7 @@ class Client {
         'Conetado com o supernodo: ${socketClient.remoteAddress.address}:${socketClient.remotePort}');
 
     socketClient.listen(
-      (Uint8List data) {
+      (Uint8List data) async {
         final object = String.fromCharCodes(data);
         Map<String, dynamic> decodedMessage = jsonDecode(object);
         print(object);
@@ -82,6 +85,7 @@ class Client {
           case 'RESPONSE_CLIENT_WITH_DATA':
             {
               if (messageObject.data != null) {
+                //pegar o hash como retorno e chamar uma funcao para pegar ele dai
                 final list = messageObject.data['files'].cast<String>();
                 final clientObject = ClientToServer(
                     messageObject.data['id'],
@@ -89,10 +93,12 @@ class Client {
                     messageObject.data['availablePort'],
                     list,
                     0);
-                print('data ${clientObject.ip}  ${clientObject.availablePort}');
+                print('Enviando arquivo');
                 //mock  para teste mas precisa saber como pegar o arquivo  certo para mandar tem que virda solicitacao do user
+                //pega somente a primeira posicao que vai ta com o arquivo que o usuario quer
+                final filePatch = await getPathFile(list[0]);
                 sendFile(clientObject.ip, clientObject.availablePort,
-                    '/Users/gustavoduarte/Desktop/files/ola.txt');
+                    filePatch);
               }
             }
             break;
@@ -125,18 +131,22 @@ class Client {
       (Uint8List data) async {
         final object = String.fromCharCodes(data);
         Map<String, dynamic> decodedMessage = jsonDecode(object);
-        print(object);
+        print(decodedMessage);
         final fileObject =
             FilePath(decodedMessage['filename'], decodedMessage['path']);
 
+        final listu8 = fileObject.path.cast<int>();
+
         var builder = BytesBuilder(copy: false);
-        builder.add(fileObject.path);
+        builder.add(listu8);
         var dt = builder.takeBytes();
         //como pegar o nome do arquivo
         final filename = fileObject.filename;
 
         await writeToFile(dt.buffer.asByteData(0, dt.buffer.lengthInBytes),
             '$patchToSaveFiles/$filename');
+        //fecha o socket depois disso
+        await client.close();
       },
 
       // handle errors
@@ -187,6 +197,16 @@ class Client {
     final socket = await Socket.connect(ipToSend, port);
     var bytes = await File(patchWithFile).readAsBytes();
     var file = FilePath(fileName, bytes);
-    socket.write(file);
+    var encodedMessage = jsonEncode(file);
+    socket.write(encodedMessage);
+  }
+
+  Future<String> getPathFile(String hash) async {
+    if (hashAndFile[hash] != null) {
+      print('Tenho o patch do arquivo aqui ${hashAndFile[hash]}');
+      return hashAndFile[hash];
+    } else {
+      return '';
+    }
   }
 }
