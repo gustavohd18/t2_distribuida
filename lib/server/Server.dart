@@ -264,8 +264,11 @@ class Server {
     final list = await sendFiles();
     final messageWithFile = MessageClient('RESPONSE_LIST', list);
     var encodedMessage = jsonEncode(messageWithFile);
-    client.write(encodedMessage);
-    await resetListOfFilesFromSupernodo();
+    try {
+      client.write(encodedMessage);
+    } finally {
+      await resetListOfFilesFromSupernodo();
+    }
   }
 
   void processRequestClient(Socket client) async {
@@ -274,7 +277,11 @@ class Server {
     final list = client_found;
     final messageWithFile = MessageClient('RESPONSE_CLIENT_WITH_DATA', list);
     var encodedMessage = jsonEncode(messageWithFile);
-    client.write(encodedMessage);
+    try {
+      client.write(encodedMessage);
+    } finally {
+      print('Kaputz!');
+    }
   }
 
   Future<List<String>> sendFiles() async {
@@ -411,10 +418,11 @@ class Server {
   void resetTimeToClients(String id) async {
     await m.acquireWrite();
     try {
-      if (clients_info.isNotEmpty && id.isNotEmpty) {
-        for (var i = 0; i < clients_info.length; i++) {
-          if (clients_info[i].id == id) {
-            clients_info[i].time = 0;
+      final lst = await getClients();
+      if (lst.isNotEmpty && id.isNotEmpty) {
+        for (var i = 0; i < lst.length; i++) {
+          if (lst[i].id == id) {
+            lst[i].time = 0;
           }
         }
       }
@@ -426,11 +434,12 @@ class Server {
   void removeClients() async {
     await m.acquireWrite();
     try {
-      if (clients_info.isNotEmpty) {
-        final size = clients_info.length;
+      final lst = await getClients();
+      if (lst.isNotEmpty) {
+        final size = lst.length;
         for (var i = 0; i < size; i++) {
-          if (clients_info[i].time > 4) {
-            clients_info.remove(clients_info[i]);
+          if (lst[i].time > 4) {
+            lst.remove(lst[i]);
           }
         }
       }
@@ -442,9 +451,10 @@ class Server {
   void incrementTimeClients() async {
     await m.acquireWrite();
     try {
-      if (clients_info.isNotEmpty) {
-        for (var i = 0; i < clients_info.length; i++) {
-          clients_info[i].time++;
+      final lst = await getClients();
+      if (lst.isNotEmpty) {
+        for (var i = 0; i < lst.length; i++) {
+          lst[i].time++;
         }
       }
     } finally {
