@@ -1,8 +1,24 @@
+class FileHash {
+  final String fileName;
+  final String hash;
+  FileHash(this.fileName, this.hash);
+
+  FileHash.fromJson(Map<String, dynamic> json)
+      : fileName = json['filename'],
+        hash = json['hash'];
+
+  Map<String, dynamic> toJson() => {
+        'filename': fileName,
+        'hash': hash,
+      };
+}
+
 class ClientToServer {
   final String id;
   final String ip;
   final int availablePort;
-  final List<String> files;
+  //files vai ter que ser uma estrutura com hash e name do arquivo um mapa possivelmente
+  final List<FileHash> files;
   int time;
   ClientToServer(this.id, this.ip, this.availablePort, this.files, this.time);
 

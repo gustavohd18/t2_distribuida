@@ -35,7 +35,7 @@ class Client {
   Client(this.id, this.socketClient, this.ip, this.availablePort,
       this.socketToReceiveFiles, this.patchToSaveFiles);
 
-  Future<List<String>> getHash(filesPath) async {
+  Future<List<FileHash>> getHash(filesPath) async {
     /*
    * Fonte(s):
    * https://stackoverflow.com/questions/14268967/how-do-i-list-the-contents-of-a-directory-with-dart
@@ -43,11 +43,14 @@ class Client {
    */
     Directory filesDir = Directory(filesPath);
     if (filesDir.existsSync()) {
-      List<String> hashFileList = List<String>();
+      List<FileHash> hashFileList = List<FileHash>();
       List<FileSystemEntity> contents = filesDir.listSync(recursive: false);
       for (File file in contents) {
         Digest digest = await (sha256.bind(file.openRead())).first;
-        hashFileList.add(digest.toString());
+        final sep = Platform.isWindows ? "\\" : "/";
+        final fileName = file.path.split(sep).last;
+        final filehash = FileHash(fileName, digest.toString());
+        hashFileList.add(filehash);
         hashAndFile[digest.toString()] = file.path;
       }
       return hashFileList;
@@ -86,19 +89,25 @@ class Client {
             {
               if (messageObject.data != null) {
                 //pegar o hash como retorno e chamar uma funcao para pegar ele dai
-                final list = messageObject.data['files'].cast<String>();
+                List<FileHash> filehashList = [];
+                final list = messageObject.data['files'];
+                for (var i = 0; i < list.length; i++) {
+                  var hash = FileHash(list[i]['filename'], list[i]['hash']);
+                  print("Cheguei no hash ${hash.fileName} ${hash.hash}");
+                  filehashList.add(hash);
+                }
                 final clientObject = ClientToServer(
                     messageObject.data['id'],
                     messageObject.data['ip'],
                     messageObject.data['availablePort'],
-                    list,
+                    filehashList,
                     0);
                 print('Enviando arquivo');
                 //mock  para teste mas precisa saber como pegar o arquivo  certo para mandar tem que virda solicitacao do user
                 //pega somente a primeira posicao que vai ta com o arquivo que o usuario quer
-                final filePatch = await getPathFile(list[0]);
-                sendFile(clientObject.ip, clientObject.availablePort,
-                    filePatch);
+                final filePatch = await getPathFile(filehashList[0].hash);
+                sendFile(
+                    clientObject.ip, clientObject.availablePort, filePatch);
               }
             }
             break;

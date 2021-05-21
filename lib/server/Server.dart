@@ -18,7 +18,6 @@ class Server {
   final String id;
   List<HeartbeatServer> servers = [];
   final ServerSocket socketServer;
-  List<Socket> clients = [];
   ClientToServer client_found;
   final m = ReadWriteMutex();
   //lista que é preechida com arquivos enviados pelos multicasts somente com arquivos
@@ -81,7 +80,7 @@ class Server {
         case 'REQUEST_FILES_PEERS':
           {
             //incrementa o valor pois alguem respondeu e envia como  array via multicast
-            //todos seus arquivos
+            //todos seus arquivos somente filename
             print('REQUEST_FILES_PEERS SERVER message');
             final file = await getFiles();
             final message = MessageClient('RESPONSE_FILES', file);
@@ -91,8 +90,7 @@ class Server {
 
         case 'RESPONSE_FILES':
           {
-            //incrementa o valor pois alguem respondeu e envia como  array via multicast
-            //todos seus arquivos
+            //todos seus arquivos somente nome do arquivo
             if (messageObject.data != null) {
               print('RESPONSE_FILES SERVER message');
               final files = messageObject.data.cast<String>();
@@ -105,11 +103,11 @@ class Server {
           {
             if (messageObject.data != null) {
               print('WHO_HAVE_THIS_FILE SERVER message');
-              final nameFile = messageObject.data;
-              final client = await getClientFromFile(nameFile);
+              final hashFile = messageObject.data;
+              final client = await getClientFromFile(hashFile);
               if (client != null) {
                 final clientSend = ClientToServer(client.id, client.ip,
-                      client.availablePort, [messageObject.data], 0);
+                    client.availablePort, [messageObject.data], 0);
                 final message = MessageClient('GET_FILE', clientSend);
                 await sendPackageToMulticast(message);
               }
@@ -165,7 +163,7 @@ class Server {
                 var encodedMessage = jsonEncode(messageWithFile);
                 client.write(encodedMessage);
               } else {
-                //mandar minha propria lista de arquivos
+                //mandar minha propria lista de arquivos nome dos arquivos
                 final list = await getFiles();
                 final message = MessageClient('RESPONSE_LIST', list);
                 var encodedMessage = jsonEncode(message);
@@ -178,13 +176,21 @@ class Server {
             {
               if (messageObject.data != null) {
                 print('JOIN MESSAGE');
-                final list = messageObject.data['files'].cast<String>();
+                print("files ${messageObject.data['files']}");
+                List<FileHash> filehashList = [];
+                final list = messageObject.data['files'];
+                for (var i = 0; i < list.length; i++) {
+                  var hash = FileHash(list[i]['filename'], list[i]['hash']);
+                  print("Cheguei no hash ${hash.fileName} ${hash.hash}");
+                  filehashList.add(hash);
+                }
                 final clientObject = ClientToServer(
                     messageObject.data['id'],
                     messageObject.data['ip'],
                     messageObject.data['availablePort'],
-                    list,
+                    filehashList,
                     0);
+                print("Lista de files $filehashList");
                 await addNodo(clientObject);
                 final message = MessageClient('REGISTER', []);
                 var encodedMessage = jsonEncode(message);
@@ -198,26 +204,33 @@ class Server {
             {
               if (messageObject.data != null) {
                 print('REQUEST_PEER MESSAGE');
-                final hasClient = await getClientFromFile(messageObject.data);
-                if (hasClient == null) {
-                  final message =
-                      MessageClient('WHO_HAVE_THIS_FILE', messageObject.data);
-                  await sendPackageToMulticast(message);
-                  //manda processar a thead para responder depois
-                  processRequestClient(client);
-                  //manda mensagem que recebeu a solicitacao
-                  final messageWithFile =
-                      MessageClient('PROCESSING_REQUEST', []);
-                  var encodedMessage = jsonEncode(messageWithFile);
-                  client.write(encodedMessage);
-                } else {
-                  //O arquivo estava na minha lista
-                  final clientSend = ClientToServer(hasClient.id, hasClient.ip,
-                      hasClient.availablePort, [messageObject.data], 0);
-                  final message =
-                      MessageClient('RESPONSE_CLIENT_WITH_DATA', clientSend);
-                  var encodedMessage = jsonEncode(message);
-                  client.write(encodedMessage);
+                //vamos receber um nome de um arquivo aqui precisamos converter
+                final hashFromFile =
+                    await convertNameFileToHash(messageObject.data);
+
+                if (hashFromFile != null) {
+                  final hasClient = await getClientFromFile(hashFromFile);
+                  if (hasClient == null) {
+                    final message =
+                        MessageClient('WHO_HAVE_THIS_FILE', hashFromFile);
+                    await sendPackageToMulticast(message);
+                    //manda processar a thead para responder depois
+                    processRequestClient(client);
+                    //manda mensagem que recebeu a solicitacao
+                    final messageWithFile =
+                        MessageClient('PROCESSING_REQUEST', []);
+                    var encodedMessage = jsonEncode(messageWithFile);
+                    client.write(encodedMessage);
+                  } else {
+                    //O arquivo estava na minha lista
+                    final dynamic hashFile = FileHash("",hashFromFile);
+                    final clientSend = ClientToServer(hasClient.id,
+                        hasClient.ip, hasClient.availablePort, [hashFile], 0);
+                    final message =
+                        MessageClient('RESPONSE_CLIENT_WITH_DATA', clientSend);
+                    var encodedMessage = jsonEncode(message);
+                    client.write(encodedMessage);
+                  }
                 }
               }
             }
@@ -263,7 +276,9 @@ class Server {
       for (var i = 0; i < clients_info.length; i++) {
         var client = clients_info[i];
         for (var j = 0; j < client.files.length; j++) {
-          files.add(client.files[j]);
+          // para mandar para o usuario utiliza somente o filename
+          //para mandar para o servidor ou algum request tem que o usar o hash
+          files.add(client.files[j].fileName);
         }
       }
       return files;
@@ -301,6 +316,7 @@ class Server {
   Future<List<String>> sendFiles() async {
     await m.acquireRead();
     try {
+      // ista de arquivos nome dos arquivos
       // ignore: omit_local_variable_types
       List<String> files = await filesToSend;
       return files;
@@ -325,7 +341,6 @@ class Server {
   void listenerServerSocket() async {
     await socketServer.listen((client) {
       handleConnectionNodo(client);
-      addClient(client);
     });
   }
 
@@ -335,22 +350,6 @@ class Server {
     var sender = await UDP.bind(Endpoint.any());
     var encodedMessage = jsonEncode(messageClient);
     await sender.send(encodedMessage.codeUnits, multicastEndpoint);
-  }
-
-  void addClient(Socket client) async {
-    await m.acquireWrite();
-    try {
-      // sessao critica
-      if (clients.isEmpty) {
-        clients.add(client);
-      } else {
-        if (!clients.contains(client)) {
-          clients.add(client);
-        }
-      }
-    } finally {
-      m.release();
-    }
   }
 
   void addNodo(ClientToServer client) async {
@@ -389,14 +388,31 @@ class Server {
     }
   }
 
-  Future<ClientToServer> getClientFromFile(String file) async {
+  Future<ClientToServer> getClientFromFile(String hash) async {
     await m.acquireRead();
     try {
       for (var i = 0; i < clients_info.length; i++) {
         var client = clients_info[i];
         for (var j = 0; j < client.files.length; j++) {
-          if (file == client.files[j]) {
+          if (hash == client.files[j].hash) {
             return client;
+          }
+        }
+      }
+      return null;
+    } finally {
+      m.release();
+    }
+  }
+
+  Future<String> convertNameFileToHash(String fileName) async {
+    await m.acquireRead();
+    try {
+      for (var i = 0; i < clients_info.length; i++) {
+        var client = clients_info[i];
+        for (var j = 0; j < client.files.length; j++) {
+          if (fileName == client.files[j].fileName) {
+            return client.files[j].hash;
           }
         }
       }
@@ -452,7 +468,7 @@ class Server {
       if (lst.isNotEmpty) {
         final size = lst.length;
         for (var i = 0; i < size; i++) {
-          if (lst[i].time > 4) {
+          if (lst[i].time > 3) {
             lst.remove(lst[i]);
           }
         }
@@ -520,7 +536,7 @@ class Server {
       if (servers.isNotEmpty) {
         final size = servers.length;
         for (var i = 0; i < size; i++) {
-          if (servers[i].time > 4) {
+          if (servers[i].time > 3) {
             servers.remove(servers[i]);
           }
         }
