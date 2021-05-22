@@ -176,12 +176,10 @@ class Server {
             {
               if (messageObject.data != null) {
                 print('JOIN MESSAGE');
-                print("files ${messageObject.data['files']}");
                 List<FileHash> filehashList = [];
                 final list = messageObject.data['files'];
                 for (var i = 0; i < list.length; i++) {
                   var hash = FileHash(list[i]['filename'], list[i]['hash']);
-                  print("Cheguei no hash ${hash.fileName} ${hash.hash}");
                   filehashList.add(hash);
                 }
                 final clientObject = ClientToServer(
@@ -190,7 +188,7 @@ class Server {
                     messageObject.data['availablePort'],
                     filehashList,
                     0);
-                print("Lista de files $filehashList");
+
                 await addNodo(clientObject);
                 final message = MessageClient('REGISTER', []);
                 var encodedMessage = jsonEncode(message);
@@ -239,7 +237,6 @@ class Server {
           case 'HEARTBEAT_CLIENT':
             {
               if (messageObject.data != null) {
-                print('HEARTBEAT_CLIENT MESSAGE');
                 final String idData = messageObject.data;
                 print('HeartBeat Client come from $idData');
                 resetTimeToClients(idData);
@@ -611,7 +608,7 @@ class Server {
   }
 
   void removeClientsWithNoResponse() async {
-    const sec = Duration(seconds: 15);
+    const sec = Duration(seconds: 10);
     Timer.periodic(sec, (Timer t) => removeClients());
   }
 }

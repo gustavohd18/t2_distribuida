@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
 
 import 'package:t2_distribution_programming/ClientToServer.dart';
 import 'package:t2_distribution_programming/client/Client.dart';
@@ -6,12 +8,56 @@ import 'package:t2_distribution_programming/client/MessageClient.dart';
 import 'package:t2_distribution_programming/server/Server.dart';
 import 'dart:io';
 
+Future<ReceivePort> initIsolate() async {
+  Completer completer = new Completer<SendPort>();
+  ReceivePort isolateToMainStream = ReceivePort();
+
+
+  Isolate myIsolateInstance =
+      await Isolate.spawn(myIsolate, isolateToMainStream.sendPort);
+  return isolateToMainStream;
+}
+
+void myIsolate(SendPort isolateToMainStream) {
+  while (true) {
+    print('=======================');
+    print('Bem vindo ao FilesLand');
+    print('1: Visualizar arquivos disponivel para download');
+    print('2: solicitar download(Precisa passar o nome do arquivo)');
+    print('=======================');
+    var line = stdin.readLineSync(encoding: Encoding.getByName('utf-8'));
+    var option = int.parse(line.trim());
+    switch (option) {
+      case 1:
+        {
+          isolateToMainStream.send(1);
+        }
+        break;
+      case 2:
+        {
+          //precisa mapear para de  alguma forma mandar o arquivo que escolheu  seja via option ou algo  assim
+          //provavelmente armazenar em uma lista todos os recebidos na lib client
+          print('Informe o nome do arquivo:');
+          var line = stdin.readLineSync(encoding: Encoding.getByName('utf-8'));
+          var file = line;
+          isolateToMainStream.send(file);
+        }
+        break;
+      default:
+        {
+          print('Valor não mapeado');
+        }
+        break;
+    }
+  }
+}
+
 void terminalInteractive(Client client) async {
   while (true) {
     print('=======================');
     print('Bem vindo ao FilesLand');
     print('1: Visualizar arquivos disponivel para download');
-    print('2: solicitar download');
+    print('2: solicitar download(Precisa passar o nome do arquivo)');
     print('=======================');
     var line = stdin.readLineSync(encoding: Encoding.getByName('utf-8'));
     var option = int.parse(line.trim());
@@ -19,6 +65,8 @@ void terminalInteractive(Client client) async {
       case 1:
         {
           final messageExample = MessageClient('REQUEST_LIST_FILES', []);
+          await Future.delayed(Duration(seconds: 4));
+          print(client.filesComming);
           await client.sendMessageStringToSupernodo(messageExample);
         }
         break;
@@ -26,7 +74,11 @@ void terminalInteractive(Client client) async {
         {
           //precisa mapear para de  alguma forma mandar o arquivo que escolheu  seja via option ou algo  assim
           //provavelmente armazenar em uma lista todos os recebidos na lib client
-          final messageData = MessageClient('REQUEST_PEER', 'disneytorrent');
+          print('Informe o nome do arquivo:');
+          var line = stdin.readLineSync(encoding: Encoding.getByName('utf-8'));
+          var file = line;
+          final messageData = MessageClient('REQUEST_PEER', file);
+          await Future.delayed(Duration(seconds: 2));
           await client.sendMessageStringToSupernodo(messageData);
         }
         break;
@@ -109,13 +161,30 @@ void main(List<String> args) async {
     client.listenerToDownload();
     //dispara a future para lidar com a leitura dos arquivos
     sendFilesToServerFromClient(client, args[5]);
-    await Future.delayed(Duration(seconds: 8));
+    // await Future.delayed(Duration(seconds: 8));
     final messageExample = MessageClient('REQUEST_LIST_FILES', []);
-    await client.sendMessageStringToSupernodo(messageExample);
-    await Future.delayed(Duration(seconds: 12));
-    final messageData = MessageClient('REQUEST_PEER', 'p1.pdf');
-    await client.sendMessageStringToSupernodo(messageData);
+    // await client.sendMessageStringToSupernodo(messageExample);
+    //await Future.delayed(Duration(seconds: 12));
+    final messageData = MessageClient('REQUEST_PEER', 'wandavision.mov');
+    //await client.sendMessageStringToSupernodo(messageData);
     //pproblema com o terminal
-    // terminalInteractive(client);
+    //await runIsolation(client);
+    ReceivePort mainToIsolateStream = await initIsolate();
+    mainToIsolateStream.listen((message) async {
+      print("estou ouvindo ja ${message}");
+      switch (message) {
+          case 1:
+            {
+              final messageRequest = MessageClient('REQUEST_LIST_FILES', []);
+              await client.sendMessageStringToSupernodo(messageRequest);
+            }
+            break;
+          default:
+            final messageData = MessageClient('REQUEST_PEER', message);
+            await client.sendMessageStringToSupernodo(messageData);
+        }
+    });
+    //mainToIsolateStream.send(client);
+
   }
 }

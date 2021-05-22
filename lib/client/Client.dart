@@ -4,7 +4,6 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
-
 import 'package:t2_distribution_programming/ClientToServer.dart';
 import 'package:t2_distribution_programming/client/MessageClient.dart';
 
@@ -30,6 +29,7 @@ class Client {
   final String patchToSaveFiles;
   List<String> files;
   final Socket socketClient;
+  List<String> filesComming = [];
   final ServerSocket socketToReceiveFiles;
   HashMap<String, String> hashAndFile = HashMap<String, String>();
   Client(this.id, this.socketClient, this.ip, this.availablePort,
@@ -74,6 +74,9 @@ class Client {
             {
               if (messageObject.data != null) {
                 final list = messageObject.data.cast<String>();
+                print('Lista de arquivos disponiveis na rede');
+                filesComming.clear();
+                filesComming.addAll(list);
                 print(list);
               }
             }
@@ -138,7 +141,6 @@ class Client {
         final pathFile = await getPathFile(hash);
         String sep = Platform.isWindows ? "\\" : "/";
         String fileName = pathFile.split(sep).last;
-        print("OLHA O NOME DO ARQUIVO: $fileName");
         // pega os bytes do arquivo para envio
         var bytes = await File(pathFile).openRead();
         await client.addStream(bytes);
@@ -172,7 +174,6 @@ class Client {
   Future<void> sendMessageStringToSupernodo(MessageClient messageClient) async {
     //vamos usar json nos objetos para envio
     var encodedMessage = jsonEncode(messageClient);
-    print('Nodo: $encodedMessage');
     socketClient.write(encodedMessage);
   }
 
