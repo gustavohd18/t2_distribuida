@@ -15,7 +15,7 @@ Future<ReceivePort> initIsolate() async {
   return isolateToMainStream;
 }
 
-// function which run in a Thread to handle with interactive from user 
+// function which run in a Thread to handle with interactive from user
 void terminalIsolate(SendPort isolateToMainStream) {
   while (true) {
     print('=======================');
@@ -24,7 +24,12 @@ void terminalIsolate(SendPort isolateToMainStream) {
     print('2: solicitar download(Precisa passar o nome do arquivo)');
     print('=======================');
     var line = stdin.readLineSync(encoding: Encoding.getByName('utf-8'));
-    var option = int.parse(line.trim());
+    var option = 0;
+    try {
+      option = int.parse(line.trim());
+    } catch(e) {
+      option = 0;
+    }
     switch (option) {
       case 1:
         {
@@ -95,7 +100,7 @@ void main(List<String> args) async {
     supernode.incrementTimeToClients();
     supernode.removeClientsWithNoResponse();
 
-    //send message multicast to join 
+    //send message multicast to join
     final message = Message('JOIN', id);
     await supernode.sendPackageToMulticast(message);
   } else if (args[0] == 'nodo') {
@@ -123,16 +128,16 @@ void main(List<String> args) async {
     var mainToIsolateStream = await initIsolate();
     mainToIsolateStream.listen((message) async {
       switch (message) {
-          case 1:
-            {
-              final messageRequest = Message('REQUEST_LIST_FILES', []);
-              await client.sendMessageStringToSupernodo(messageRequest);
-            }
-            break;
-          default:
-            final messageData = Message('REQUEST_PEER', message);
-            await client.sendMessageStringToSupernodo(messageData);
-        }
+        case 1:
+          {
+            final messageRequest = Message('REQUEST_LIST_FILES', []);
+            await client.sendMessageStringToSupernodo(messageRequest);
+          }
+          break;
+        default:
+          final messageData = Message('REQUEST_PEER', message);
+          await client.sendMessageStringToSupernodo(messageData);
+      }
     });
   }
 }
