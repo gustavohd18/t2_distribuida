@@ -464,15 +464,19 @@ class Server {
     await m.acquireRead();
     try {
       final lst = clients_info;
-      var elementToRemoved;
+      var elementsToRemoved = [];
       if (lst.isNotEmpty) {
         final size = lst.length;
         for (var i = 0; i < size; i++) {
           if (lst[i].time > 3) {
-            elementToRemoved = lst[i];
+            elementsToRemoved.add(lst[i]);
           }
         }
-        lst.remove(elementToRemoved);
+        if(elementsToRemoved.isNotEmpty) {
+          for(var j = 0; j < elementsToRemoved.length; j++){
+            lst.remove(elementsToRemoved[j]);
+          }
+        }
       }
     } finally {
       m.release();
@@ -536,13 +540,17 @@ class Server {
     try {
       if (servers.isNotEmpty) {
         final size = servers.length;
-        var serverRemoved;
+        var serversRemoved = [];
         for (var i = 0; i < size; i++) {
           if (servers[i].time > 3) {
-            serverRemoved = servers[i];
+            serversRemoved.add(servers[i]);
           }
         }
-        servers.remove(serverRemoved);
+        if(serversRemoved.isNotEmpty) {
+          for(var j = 0; j < serversRemoved.length; j++){
+            servers.remove(serversRemoved[j]);
+          }
+        }
       }
     } finally {
       m.release();
