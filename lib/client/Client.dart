@@ -146,7 +146,8 @@ class Client {
         await client.addStream(bytes);
         // terminei de enviar os bytes
         // envio o nome do arquivo junto com a mensagem de finished
-        client.write('FINESHED;$fileName');
+        await Future.delayed(Duration(seconds: 1));
+        client.write('FINESHED${hash}$fileName');
       },
 
       // handle errors
@@ -195,22 +196,21 @@ class Client {
     var builder = BytesBuilder(copy: false);
 
     socket.listen((data) async {
-        final object = String.fromCharCodes(data);
-        if (object.split(';').contains('FINESHED')) {
-          print('DOWNLOAD finalizado');
-          final fileName = object.split(';');
-          var dt = builder.takeBytes();
-          //como pegar o nome do arquivo
-          final file = File('${patchToSaveFiles}/${fileName[1]}');
+      final object = String.fromCharCodes(data);
+      if (object.split(hash).contains('FINESHED')) {
+        print('DOWNLOAD finalizado');
+        final fileName = object.split(hash);
+        var dt = builder.takeBytes();
+        //como pegar o nome do arquivo
+        final file = File('${patchToSaveFiles}/${fileName[1]}');
 
-          final buffer = dt.buffer;
-          await file.writeAsBytesSync(
-              buffer.asUint8List(dt.offsetInBytes, dt.lengthInBytes));
-          builder.clear();
-          await socket.close();
-        } else {
-          builder.add(data);
-        }
+        final buffer = dt.buffer;
+        await file.writeAsBytesSync(
+            buffer.asUint8List(dt.offsetInBytes, dt.lengthInBytes));
+        await socket.close();
+      } else {
+        builder.add(data);
+      }
     });
   }
 
