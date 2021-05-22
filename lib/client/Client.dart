@@ -62,6 +62,8 @@ class Client {
                 final list = messageObject.data.cast<String>();
                 filesComming.clear();
                 filesComming.addAll(list);
+                print('Lista de arquivos disponiveis:');
+                print(list);
               }
             }
             break;
@@ -74,7 +76,7 @@ class Client {
           case 'RESPONSE_CLIENT_WITH_DATA':
             {
               if (messageObject.data != null) {
-                //will be return just one single file 
+                //will be return just one single file
                 var filehashList = <FileHash>[];
                 final list = messageObject.data['files'];
                 for (var i = 0; i < list.length; i++) {
@@ -128,7 +130,7 @@ class Client {
         // pega os bytes do arquivo para envio
         var bytes = await File(pathFile).openRead();
         await client.addStream(bytes);
-        // Finished send bytes 
+        // Finished send bytes
         // we need added a delay to send next message in a single packet
         await Future.delayed(Duration(seconds: 1));
         // this message is used to identify all packet from data was send
@@ -153,12 +155,12 @@ class Client {
     const fiveSec = Duration(seconds: 5);
     Timer.periodic(
         fiveSec,
-        (Timer t) => sendMessageStringToSupernodo(
-            Message('HEARTBEAT_CLIENT', id)));
+        (Timer t) =>
+            sendMessageStringToSupernodo(Message('HEARTBEAT_CLIENT', id)));
   }
 
   Future<void> sendMessageStringToSupernodo(Message messageClient) async {
-    //parser to json 
+    //parser to json
     var encodedMessage = jsonEncode(messageClient);
     socketClient.write(encodedMessage);
   }
@@ -202,7 +204,8 @@ class Client {
 
   Future<String> getPathFile(String hash) async {
     if (hashAndFile[hash] != null) {
-      print('Recebi uma solicitação de arquivo que se encontra na pasta ${hashAndFile[hash]}');
+      print(
+          'Recebi uma solicitação de arquivo que se encontra na pasta ${hashAndFile[hash]}');
       return hashAndFile[hash];
     } else {
       return '';
