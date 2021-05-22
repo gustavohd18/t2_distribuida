@@ -9,19 +9,17 @@ import 'package:t2_distribution_programming/server/Server.dart';
 import 'dart:io';
 
 Future<ReceivePort> initIsolate() async {
-  Completer completer = new Completer<SendPort>();
   var isolateToMainStream = ReceivePort();
 
-
-  var myIsolateInstance =
-      await Isolate.spawn(myIsolate, isolateToMainStream.sendPort);
+  await Isolate.spawn(terminalIsolate, isolateToMainStream.sendPort);
   return isolateToMainStream;
 }
 
-void myIsolate(SendPort isolateToMainStream) {
+// function which run in a Thread to handle with interactive from user 
+void terminalIsolate(SendPort isolateToMainStream) {
   while (true) {
     print('=======================');
-    print('Bem vindo ao FilesLand');
+    print('Bem vindo ao FileLand');
     print('1: Visualizar arquivos disponivel para download');
     print('2: solicitar download(Precisa passar o nome do arquivo)');
     print('=======================');
@@ -35,8 +33,6 @@ void myIsolate(SendPort isolateToMainStream) {
         break;
       case 2:
         {
-          //precisa mapear para de  alguma forma mandar o arquivo que escolheu  seja via option ou algo  assim
-          //provavelmente armazenar em uma lista todos os recebidos na lib client
           print('Informe o nome do arquivo:');
           var line = stdin.readLineSync(encoding: Encoding.getByName('utf-8'));
           var file = line;
@@ -45,17 +41,17 @@ void myIsolate(SendPort isolateToMainStream) {
         break;
       default:
         {
-          print('Valor não mapeado');
+          print('Dado não mapeado');
         }
         break;
     }
   }
 }
 
-void sendFilesToServerFromClient(Client client, String patch) async {
+void sendFilesToServerFromClient(Client client, String path) async {
   print('Processando o mapeamento da pasta informada');
-  // ### FILE HASH ### //
-  final clientFilesList = await client.getHash(patch);
+  // ###  call function which handle HASH ### //
+  final clientFilesList = await client.getHash(path);
 
   final clientData = ClientToServer(
       client.id, client.ip, client.availablePort, clientFilesList, 0);
@@ -64,7 +60,7 @@ void sendFilesToServerFromClient(Client client, String patch) async {
 
   await client.sendMessageStringToSupernodo(messageDataClient);
   client.heartbeatClient();
-  print('Mapeamento encerrado');
+  print('Mapeamento encerrado com sucesso');
 }
 
 void main(List<String> args) async {
@@ -87,7 +83,10 @@ void main(List<String> args) async {
     final ip = interface.addresses[0];
     final server = await ServerSocket.bind(ip, port);
     var supernode = Server(ip.address, server, id);
+
     print('Supernodo ip: $ip porta: $port id:$id');
+
+    // call all functions which will handle with clients and other servers
     supernode.listenerServerSocket();
     supernode.listenerMulticast();
     supernode.heartbeatServer();
@@ -95,7 +94,8 @@ void main(List<String> args) async {
     supernode.removeServeWithNoResponse();
     supernode.incrementTimeToClients();
     supernode.removeClientsWithNoResponse();
-    // sempre que um supernodo entra na rede ele envia uma msg do tipo join
+
+    //send message multicast to join 
     final message = Message('JOIN', id);
     await supernode.sendPackageToMulticast(message);
   } else if (args[0] == 'nodo') {
@@ -106,7 +106,6 @@ void main(List<String> args) async {
     }
 
     final socket = await Socket.connect(args[2], port);
-    // precisa adicionar parametro por linha de comando para o id e o proprio ip e propria porta disponivel
     final id = args[4];
     final ip = interface.addresses[0];
     final portFree = int.parse(args[3]);
@@ -114,9 +113,11 @@ void main(List<String> args) async {
     final serverToReceiveFiles = await ServerSocket.bind(ip, portFree);
     final client = Client(id, socket, ip.address, portFree,
         serverToReceiveFiles, pathToSaveFiles);
+
+    // call functions to handle with server, request from other clients and read folder,
+    // to do hash
     client.listenerSupernodo();
     client.listenerToDownload();
-    //dispara a future para lidar com a leitura dos arquivos
     sendFilesToServerFromClient(client, args[5]);
 
     var mainToIsolateStream = await initIsolate();
