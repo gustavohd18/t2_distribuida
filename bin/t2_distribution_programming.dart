@@ -10,10 +10,10 @@ import 'dart:io';
 
 Future<ReceivePort> initIsolate() async {
   Completer completer = new Completer<SendPort>();
-  ReceivePort isolateToMainStream = ReceivePort();
+  var isolateToMainStream = ReceivePort();
 
 
-  Isolate myIsolateInstance =
+  var myIsolateInstance =
       await Isolate.spawn(myIsolate, isolateToMainStream.sendPort);
   return isolateToMainStream;
 }
@@ -41,45 +41,6 @@ void myIsolate(SendPort isolateToMainStream) {
           var line = stdin.readLineSync(encoding: Encoding.getByName('utf-8'));
           var file = line;
           isolateToMainStream.send(file);
-        }
-        break;
-      default:
-        {
-          print('Valor não mapeado');
-        }
-        break;
-    }
-  }
-}
-
-void terminalInteractive(Client client) async {
-  while (true) {
-    print('=======================');
-    print('Bem vindo ao FilesLand');
-    print('1: Visualizar arquivos disponivel para download');
-    print('2: solicitar download(Precisa passar o nome do arquivo)');
-    print('=======================');
-    var line = stdin.readLineSync(encoding: Encoding.getByName('utf-8'));
-    var option = int.parse(line.trim());
-    switch (option) {
-      case 1:
-        {
-          final messageExample = MessageClient('REQUEST_LIST_FILES', []);
-          await Future.delayed(Duration(seconds: 4));
-          print(client.filesComming);
-          await client.sendMessageStringToSupernodo(messageExample);
-        }
-        break;
-      case 2:
-        {
-          //precisa mapear para de  alguma forma mandar o arquivo que escolheu  seja via option ou algo  assim
-          //provavelmente armazenar em uma lista todos os recebidos na lib client
-          print('Informe o nome do arquivo:');
-          var line = stdin.readLineSync(encoding: Encoding.getByName('utf-8'));
-          var file = line;
-          final messageData = MessageClient('REQUEST_PEER', file);
-          await Future.delayed(Duration(seconds: 2));
-          await client.sendMessageStringToSupernodo(messageData);
         }
         break;
       default:
@@ -153,25 +114,13 @@ void main(List<String> args) async {
     final serverToReceiveFiles = await ServerSocket.bind(ip, portFree);
     final client = Client(id, socket, ip.address, portFree,
         serverToReceiveFiles, pathToSaveFiles);
-    //exemplo de como mandar um arquivo cada client ira abrir seu servir e ao solicitar um arquivo dele
-    //ira criar um socket normal o client que oslicitou para assim baixar o arquivo
-    //var bytes = await new File('/Users/gustavoduarte/Desktop/files/salacleanold.pddl').readAsBytes();
-    //socket.add(bytes);
     client.listenerSupernodo();
     client.listenerToDownload();
     //dispara a future para lidar com a leitura dos arquivos
     sendFilesToServerFromClient(client, args[5]);
-    // await Future.delayed(Duration(seconds: 8));
-    final messageExample = MessageClient('REQUEST_LIST_FILES', []);
-    // await client.sendMessageStringToSupernodo(messageExample);
-    //await Future.delayed(Duration(seconds: 12));
-    final messageData = MessageClient('REQUEST_PEER', 'wandavision.mov');
-    //await client.sendMessageStringToSupernodo(messageData);
-    //pproblema com o terminal
-    //await runIsolation(client);
-    ReceivePort mainToIsolateStream = await initIsolate();
+
+    var mainToIsolateStream = await initIsolate();
     mainToIsolateStream.listen((message) async {
-      print("estou ouvindo ja ${message}");
       switch (message) {
           case 1:
             {
@@ -184,7 +133,5 @@ void main(List<String> args) async {
             await client.sendMessageStringToSupernodo(messageData);
         }
     });
-    //mainToIsolateStream.send(client);
-
   }
 }

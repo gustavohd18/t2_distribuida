@@ -221,7 +221,7 @@ class Server {
                     client.write(encodedMessage);
                   } else {
                     //O arquivo estava na minha lista
-                    final dynamic hashFile = FileHash("",hashFromFile);
+                    final dynamic hashFile = FileHash("", hashFromFile);
                     final clientSend = ClientToServer(hasClient.id,
                         hasClient.ip, hasClient.availablePort, [hashFile], 0);
                     final message =
@@ -388,11 +388,13 @@ class Server {
   Future<ClientToServer> getClientFromFile(String hash) async {
     await m.acquireRead();
     try {
-      for (var i = 0; i < clients_info.length; i++) {
-        var client = clients_info[i];
-        for (var j = 0; j < client.files.length; j++) {
-          if (hash == client.files[j].hash) {
-            return client;
+      if (clients_info.isNotEmpty) {
+        for (var i = 0; i < clients_info.length; i++) {
+          var client = clients_info[i];
+          for (var j = 0; j < client.files.length; j++) {
+            if (hash == client.files[j].hash) {
+              return client;
+            }
           }
         }
       }
@@ -459,16 +461,18 @@ class Server {
   }
 
   void removeClients() async {
-    await m.acquireWrite();
+    await m.acquireRead();
     try {
       final lst = clients_info;
+      var elementToRemoved;
       if (lst.isNotEmpty) {
         final size = lst.length;
         for (var i = 0; i < size; i++) {
           if (lst[i].time > 3) {
-            lst.remove(lst[i]);
+            elementToRemoved = lst[i];
           }
         }
+        lst.remove(elementToRemoved);
       }
     } finally {
       m.release();
@@ -532,11 +536,13 @@ class Server {
     try {
       if (servers.isNotEmpty) {
         final size = servers.length;
+        var serverRemoved;
         for (var i = 0; i < size; i++) {
           if (servers[i].time > 3) {
-            servers.remove(servers[i]);
+            serverRemoved = servers[i];
           }
         }
+        servers.remove(serverRemoved);
       }
     } finally {
       m.release();
