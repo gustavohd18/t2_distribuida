@@ -146,7 +146,6 @@ class Client {
       // handle the client closing the connection after send all packet
       onDone: () {
         print('Dados enviados para o nodo');
-        client.close();
       },
     );
   }

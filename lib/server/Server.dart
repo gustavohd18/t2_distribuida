@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:t2_distribution_programming/data/ClientToServer.dart';
@@ -18,7 +19,7 @@ class Server {
   final m = ReadWriteMutex();
   //list which is completed with other server with multicast include yourself
   List<String> filesToSend = [];
-  //data for each client which join 
+  //data for each client which join
   List<ClientToServer> clients_info = [];
   Server(this.name, this.socketServer, this.id);
 
@@ -96,13 +97,17 @@ class Server {
           {
             if (messageObject.data != null) {
               print('WHO_HAVE_THIS_FILE SERVER message');
-              final hashFile = messageObject.data;
-              final client = await getClientFromFile(hashFile);
-              if (client != null) {
-                final clientSend = ClientToServer(client.id, client.ip,
-                    client.availablePort, [messageObject.data], 0);
-                final message = Message('GET_FILE', clientSend);
-                await sendPackageToMulticast(message);
+              final filename = messageObject.data;
+              final hashConvert = await convertNameFileToHash(filename);
+              if (hashConvert != null) {
+                final client = await getClientFromFile(hashConvert);
+                if (client != null) {
+                  final fileHash = FileHash('', hashConvert);
+                  final clientSend = ClientToServer(client.id, client.ip,
+                      client.availablePort, [fileHash], 0);
+                  final message = Message('GET_FILE', clientSend);
+                  await sendPackageToMulticast(message);
+                }
               }
             }
           }
@@ -111,13 +116,18 @@ class Server {
           {
             if (messageObject.data != null) {
               print('GET_FILE SERVER message');
-              //Here have just one hash 
-              var list = messageObject.data['files'].cast<String>();
+              //Here have just one hash
+              var filehashList = <FileHash>[];
+              final list = messageObject.data['files'];
+              for (var i = 0; i < list.length; i++) {
+                var hash = FileHash(list[i]['filename'], list[i]['hash']);
+                filehashList.add(hash);
+              }
               final clientObject = ClientToServer(
                   messageObject.data['id'],
                   messageObject.data['ip'],
                   messageObject.data['availablePort'],
-                  list,
+                  filehashList,
                   0);
               client_found = clientObject;
             }
@@ -199,17 +209,28 @@ class Server {
                 final hashFromFile =
                     await convertNameFileToHash(messageObject.data);
 
+                if (hashFromFile == null) {
+                  final message =
+                      Message('WHO_HAVE_THIS_FILE', messageObject.data);
+                  await sendPackageToMulticast(message);
+                  //send to process in another thead
+                  processRequestClient(client);
+
+                  final messageWithFile = Message('PROCESSING_REQUEST', []);
+                  var encodedMessage = jsonEncode(messageWithFile);
+
+                  client.write(encodedMessage);
+                }
+
                 if (hashFromFile != null) {
                   final hasClient = await getClientFromFile(hashFromFile);
                   if (hasClient == null) {
-                    final message =
-                        Message('WHO_HAVE_THIS_FILE', hashFromFile);
+                    final message = Message('WHO_HAVE_THIS_FILE', hashFromFile);
                     await sendPackageToMulticast(message);
                     //send to process in another thead
                     processRequestClient(client);
 
-                    final messageWithFile =
-                        Message('PROCESSING_REQUEST', []);
+                    final messageWithFile = Message('PROCESSING_REQUEST', []);
                     var encodedMessage = jsonEncode(messageWithFile);
 
                     client.write(encodedMessage);
@@ -297,6 +318,7 @@ class Server {
     final list = client_found;
     final messageWithFile = Message('RESPONSE_CLIENT_WITH_DATA', list);
     var encodedMessage = jsonEncode(messageWithFile);
+    print("ENCODED MESSAGE: $encodedMessage");
     try {
       client.write(encodedMessage);
     } finally {
@@ -462,8 +484,8 @@ class Server {
             elementsToRemoved.add(lst[i]);
           }
         }
-        if(elementsToRemoved.isNotEmpty) {
-          for(var j = 0; j < elementsToRemoved.length; j++){
+        if (elementsToRemoved.isNotEmpty) {
+          for (var j = 0; j < elementsToRemoved.length; j++) {
             lst.remove(elementsToRemoved[j]);
           }
         }
@@ -537,8 +559,8 @@ class Server {
             serversRemoved.add(servers[i]);
           }
         }
-        if(serversRemoved.isNotEmpty) {
-          for(var j = 0; j < serversRemoved.length; j++){
+        if (serversRemoved.isNotEmpty) {
+          for (var j = 0; j < serversRemoved.length; j++) {
             servers.remove(serversRemoved[j]);
           }
         }
@@ -592,10 +614,8 @@ class Server {
 
   void heartbeatServer() async {
     const fiveSec = Duration(seconds: 5);
-    Timer.periodic(
-        fiveSec,
-        (Timer t) =>
-            sendPackageToMulticast(Message('HEARTBEAT_SERVER', id)));
+    Timer.periodic(fiveSec,
+        (Timer t) => sendPackageToMulticast(Message('HEARTBEAT_SERVER', id)));
   }
 
   void incrementTimeServer() async {
