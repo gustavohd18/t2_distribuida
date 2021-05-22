@@ -16,14 +16,13 @@ class Server {
   final ServerSocket socketServer;
   ClientToServer client_found;
   final m = ReadWriteMutex();
-  //lista que é preechida com arquivos enviados pelos multicasts somente com arquivos
+  //list which is completed with other server with multicast include yourself
   List<String> filesToSend = [];
-  //dados de cada usuario no supernodo inclui seu identificador e arquivos
+  //data for each client which join 
   List<ClientToServer> clients_info = [];
   Server(this.name, this.socketServer, this.id);
 
   void handleConnectionSupernodo(Datagram data) async {
-    //validar para lidar com string ou objetos que pode ser enviados
     if (data != null) {
       final object = String.fromCharCodes(data.data);
       Map<String, dynamic> decodedMessage = jsonDecode(object);
@@ -67,7 +66,7 @@ class Server {
           {
             if (messageObject.data != null) {
               final String idData = messageObject.data;
-              print('HeartBeat server come from $idData');
+              print('HeartBeat server vindo do $idData');
               resetTimeToServer(idData);
             }
           }
@@ -75,9 +74,8 @@ class Server {
 
         case 'REQUEST_FILES_PEERS':
           {
-            //incrementa o valor pois alguem respondeu e envia como  array via multicast
-            //todos seus arquivos somente filename
             print('REQUEST_FILES_PEERS SERVER message');
+            // each server get your data  and send using multicast
             final file = await getFiles();
             final message = Message('RESPONSE_FILES', file);
             await sendPackageToMulticast(message);
@@ -86,7 +84,6 @@ class Server {
 
         case 'RESPONSE_FILES':
           {
-            //todos seus arquivos somente nome do arquivo
             if (messageObject.data != null) {
               print('RESPONSE_FILES SERVER message');
               final files = messageObject.data.cast<String>();
@@ -114,7 +111,7 @@ class Server {
           {
             if (messageObject.data != null) {
               print('GET_FILE SERVER message');
-              //ja passamos somente 1 hash
+              //Here have just one hash 
               var list = messageObject.data['files'].cast<String>();
               final clientObject = ClientToServer(
                   messageObject.data['id'],
@@ -152,14 +149,14 @@ class Server {
               if (list.length > 1) {
                 final message = Message('REQUEST_FILES_PEERS', []);
                 await sendPackageToMulticast(message);
-                //manda processar a thead para responder depois
+                //send to process in another Thead
                 processRequestFiles(client);
-                //manda mensagem que recebeu a solicitacao
+                //send to client message which server will process your request
                 final messageWithFile = Message('PROCESSING_REQUEST', []);
                 var encodedMessage = jsonEncode(messageWithFile);
                 client.write(encodedMessage);
               } else {
-                //mandar minha propria lista de arquivos nome dos arquivos
+                //if just have one server in network is not necessary send multicast
                 final list = await getFiles();
                 final message = Message('RESPONSE_LIST', list);
                 var encodedMessage = jsonEncode(message);
@@ -172,7 +169,7 @@ class Server {
             {
               if (messageObject.data != null) {
                 print('JOIN MESSAGE');
-                List<FileHash> filehashList = [];
+                var filehashList = <FileHash>[];
                 final list = messageObject.data['files'];
                 for (var i = 0; i < list.length; i++) {
                   var hash = FileHash(list[i]['filename'], list[i]['hash']);
@@ -198,7 +195,7 @@ class Server {
             {
               if (messageObject.data != null) {
                 print('REQUEST_PEER MESSAGE');
-                //vamos receber um nome de um arquivo aqui precisamos converter
+                //Receive name for file and need get hash to communicate between servers
                 final hashFromFile =
                     await convertNameFileToHash(messageObject.data);
 
@@ -208,21 +205,24 @@ class Server {
                     final message =
                         Message('WHO_HAVE_THIS_FILE', hashFromFile);
                     await sendPackageToMulticast(message);
-                    //manda processar a thead para responder depois
+                    //send to process in another thead
                     processRequestClient(client);
-                    //manda mensagem que recebeu a solicitacao
+
                     final messageWithFile =
                         Message('PROCESSING_REQUEST', []);
                     var encodedMessage = jsonEncode(messageWithFile);
+
                     client.write(encodedMessage);
                   } else {
-                    //O arquivo estava na minha lista
-                    final dynamic hashFile = FileHash("", hashFromFile);
+                    //File is in this server
+                    final dynamic hashFile = FileHash('', hashFromFile);
                     final clientSend = ClientToServer(hasClient.id,
                         hasClient.ip, hasClient.availablePort, [hashFile], 0);
+
                     final message =
                         Message('RESPONSE_CLIENT_WITH_DATA', clientSend);
                     var encodedMessage = jsonEncode(message);
+
                     client.write(encodedMessage);
                   }
                 }
@@ -234,7 +234,7 @@ class Server {
             {
               if (messageObject.data != null) {
                 final String idData = messageObject.data;
-                print('HeartBeat Client come from $idData');
+                print('HeartBeat Client vindo do cliente $idData');
                 resetTimeToClients(idData);
               }
             }
@@ -269,8 +269,6 @@ class Server {
       for (var i = 0; i < clients_info.length; i++) {
         var client = clients_info[i];
         for (var j = 0; j < client.files.length; j++) {
-          // para mandar para o usuario utiliza somente o filename
-          //para mandar para o servidor ou algum request tem que o usar o hash
           files.add(client.files[j].fileName);
         }
       }
@@ -281,7 +279,7 @@ class Server {
   }
 
   void processRequestFiles(Socket client) async {
-    //por enquanto assumimos que em 6 segundos vai responder todo mundo na rede
+    //wait 6 seconds before send to client
     await Future.delayed(Duration(seconds: 6));
     final list = await sendFiles();
     final messageWithFile = Message('RESPONSE_LIST', list);
@@ -294,7 +292,7 @@ class Server {
   }
 
   void processRequestClient(Socket client) async {
-    //por enquanto assumimos que em 6 segundos vai responder todo mundo na rede
+    //wait 6 seconds before send to client
     await Future.delayed(Duration(seconds: 6));
     final list = client_found;
     final messageWithFile = Message('RESPONSE_CLIENT_WITH_DATA', list);
@@ -309,7 +307,6 @@ class Server {
   Future<List<String>> sendFiles() async {
     await m.acquireRead();
     try {
-      // ista de arquivos nome dos arquivos
       // ignore: omit_local_variable_types
       List<String> files = await filesToSend;
       return files;
@@ -348,7 +345,6 @@ class Server {
   void addNodo(ClientToServer client) async {
     await m.acquireWrite();
     try {
-      // sessao critica
       if (clients_info.isEmpty) {
         clients_info.add(client);
       } else {
@@ -364,7 +360,6 @@ class Server {
   void addFilesFromSupernodo(List<String> file) async {
     await m.acquireWrite();
     try {
-      // sessao critica
       filesToSend.addAll(file);
     } finally {
       m.release();
@@ -374,7 +369,6 @@ class Server {
   void resetListOfFilesFromSupernodo() async {
     await m.acquireWrite();
     try {
-      // sessao critica
       filesToSend.clear();
     } finally {
       m.release();
@@ -534,6 +528,7 @@ class Server {
   void removeServers() async {
     await m.acquireWrite();
     try {
+      //sessao critica
       if (servers.isNotEmpty) {
         final size = servers.length;
         var serversRemoved = [];
@@ -556,6 +551,7 @@ class Server {
   void incrementServers() async {
     await m.acquireWrite();
     try {
+      //sessao critica
       if (servers.isNotEmpty) {
         for (var i = 0; i < servers.length; i++) {
           servers[i].time++;
