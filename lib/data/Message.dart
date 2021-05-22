@@ -1,10 +1,10 @@
-class MessageClient {
+// class to map messages between client and server using json
+class Message {
   final String message;
-  //pode ser qualquer dado ou mapear para somente array de algo
   final dynamic data;
-  MessageClient(this.message, this.data);
+  Message(this.message, this.data);
 
-  MessageClient.fromJson(Map<String, dynamic> json)
+  Message.fromJson(Map<String, dynamic> json)
       : message = json['message'],
         data = json['data'];
 

@@ -2,16 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:t2_distribution_programming/ClientToServer.dart';
-import 'package:t2_distribution_programming/client/MessageClient.dart';
+import 'package:t2_distribution_programming/data/ClientToServer.dart';
+import 'package:t2_distribution_programming/data/FileHash.dart';
+import 'package:t2_distribution_programming/data/HeartbeatServer.dart';
+import 'package:t2_distribution_programming/data/Message.dart';
 import 'package:udp/udp.dart';
 import 'package:mutex/mutex.dart';
-
-class HeartbeatServer {
-  final String id;
-  int time;
-  HeartbeatServer(this.id, this.time);
-}
 
 class Server {
   String name;
@@ -32,7 +28,7 @@ class Server {
       final object = String.fromCharCodes(data.data);
       Map<String, dynamic> decodedMessage = jsonDecode(object);
       final messageObject =
-          MessageClient(decodedMessage['message'], decodedMessage['data']);
+          Message(decodedMessage['message'], decodedMessage['data']);
 
       switch (messageObject.message) {
         case 'JOIN':
@@ -45,7 +41,7 @@ class Server {
               final hasData = await hasServer(idData);
               if (!hasData) {
                 addServer(heartbeatServer);
-                final message = MessageClient('PRESENT_IN_NETWORK', id);
+                final message = Message('PRESENT_IN_NETWORK', id);
                 await sendPackageToMulticast(message);
               }
             }
@@ -83,7 +79,7 @@ class Server {
             //todos seus arquivos somente filename
             print('REQUEST_FILES_PEERS SERVER message');
             final file = await getFiles();
-            final message = MessageClient('RESPONSE_FILES', file);
+            final message = Message('RESPONSE_FILES', file);
             await sendPackageToMulticast(message);
           }
           break;
@@ -108,7 +104,7 @@ class Server {
               if (client != null) {
                 final clientSend = ClientToServer(client.id, client.ip,
                     client.availablePort, [messageObject.data], 0);
-                final message = MessageClient('GET_FILE', clientSend);
+                final message = Message('GET_FILE', clientSend);
                 await sendPackageToMulticast(message);
               }
             }
@@ -147,25 +143,25 @@ class Server {
         final object = String.fromCharCodes(data);
         Map<String, dynamic> decodedMessage = jsonDecode(object);
         final messageObject =
-            MessageClient(decodedMessage['message'], decodedMessage['data']);
+            Message(decodedMessage['message'], decodedMessage['data']);
         switch (messageObject.message) {
           case 'REQUEST_LIST_FILES':
             {
               print('REQUEST LIST FILES message');
               final list = await getServers();
               if (list.length > 1) {
-                final message = MessageClient('REQUEST_FILES_PEERS', []);
+                final message = Message('REQUEST_FILES_PEERS', []);
                 await sendPackageToMulticast(message);
                 //manda processar a thead para responder depois
                 processRequestFiles(client);
                 //manda mensagem que recebeu a solicitacao
-                final messageWithFile = MessageClient('PROCESSING_REQUEST', []);
+                final messageWithFile = Message('PROCESSING_REQUEST', []);
                 var encodedMessage = jsonEncode(messageWithFile);
                 client.write(encodedMessage);
               } else {
                 //mandar minha propria lista de arquivos nome dos arquivos
                 final list = await getFiles();
-                final message = MessageClient('RESPONSE_LIST', list);
+                final message = Message('RESPONSE_LIST', list);
                 var encodedMessage = jsonEncode(message);
                 client.write(encodedMessage);
               }
@@ -190,7 +186,7 @@ class Server {
                     0);
 
                 await addNodo(clientObject);
-                final message = MessageClient('REGISTER', []);
+                final message = Message('REGISTER', []);
                 var encodedMessage = jsonEncode(message);
                 print(encodedMessage);
                 client.write(encodedMessage);
@@ -210,13 +206,13 @@ class Server {
                   final hasClient = await getClientFromFile(hashFromFile);
                   if (hasClient == null) {
                     final message =
-                        MessageClient('WHO_HAVE_THIS_FILE', hashFromFile);
+                        Message('WHO_HAVE_THIS_FILE', hashFromFile);
                     await sendPackageToMulticast(message);
                     //manda processar a thead para responder depois
                     processRequestClient(client);
                     //manda mensagem que recebeu a solicitacao
                     final messageWithFile =
-                        MessageClient('PROCESSING_REQUEST', []);
+                        Message('PROCESSING_REQUEST', []);
                     var encodedMessage = jsonEncode(messageWithFile);
                     client.write(encodedMessage);
                   } else {
@@ -225,7 +221,7 @@ class Server {
                     final clientSend = ClientToServer(hasClient.id,
                         hasClient.ip, hasClient.availablePort, [hashFile], 0);
                     final message =
-                        MessageClient('RESPONSE_CLIENT_WITH_DATA', clientSend);
+                        Message('RESPONSE_CLIENT_WITH_DATA', clientSend);
                     var encodedMessage = jsonEncode(message);
                     client.write(encodedMessage);
                   }
@@ -288,7 +284,7 @@ class Server {
     //por enquanto assumimos que em 6 segundos vai responder todo mundo na rede
     await Future.delayed(Duration(seconds: 6));
     final list = await sendFiles();
-    final messageWithFile = MessageClient('RESPONSE_LIST', list);
+    final messageWithFile = Message('RESPONSE_LIST', list);
     var encodedMessage = jsonEncode(messageWithFile);
     try {
       client.write(encodedMessage);
@@ -301,7 +297,7 @@ class Server {
     //por enquanto assumimos que em 6 segundos vai responder todo mundo na rede
     await Future.delayed(Duration(seconds: 6));
     final list = client_found;
-    final messageWithFile = MessageClient('RESPONSE_CLIENT_WITH_DATA', list);
+    final messageWithFile = Message('RESPONSE_CLIENT_WITH_DATA', list);
     var encodedMessage = jsonEncode(messageWithFile);
     try {
       client.write(encodedMessage);
@@ -341,7 +337,7 @@ class Server {
     });
   }
 
-  Future<void> sendPackageToMulticast(MessageClient messageClient) async {
+  Future<void> sendPackageToMulticast(Message messageClient) async {
     var multicastEndpoint =
         Endpoint.multicast(InternetAddress('239.1.2.3'), port: Port(54321));
     var sender = await UDP.bind(Endpoint.any());
@@ -603,7 +599,7 @@ class Server {
     Timer.periodic(
         fiveSec,
         (Timer t) =>
-            sendPackageToMulticast(MessageClient('HEARTBEAT_SERVER', id)));
+            sendPackageToMulticast(Message('HEARTBEAT_SERVER', id)));
   }
 
   void incrementTimeServer() async {

@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
 
-import 'package:t2_distribution_programming/ClientToServer.dart';
 import 'package:t2_distribution_programming/client/Client.dart';
-import 'package:t2_distribution_programming/client/MessageClient.dart';
+import 'package:t2_distribution_programming/data/ClientToServer.dart';
+import 'package:t2_distribution_programming/data/Message.dart';
 import 'package:t2_distribution_programming/server/Server.dart';
 import 'dart:io';
 
@@ -60,7 +60,7 @@ void sendFilesToServerFromClient(Client client, String patch) async {
   final clientData = ClientToServer(
       client.id, client.ip, client.availablePort, clientFilesList, 0);
 
-  final messageDataClient = MessageClient('JOIN', clientData);
+  final messageDataClient = Message('JOIN', clientData);
 
   await client.sendMessageStringToSupernodo(messageDataClient);
   client.heartbeatClient();
@@ -96,7 +96,7 @@ void main(List<String> args) async {
     supernode.incrementTimeToClients();
     supernode.removeClientsWithNoResponse();
     // sempre que um supernodo entra na rede ele envia uma msg do tipo join
-    final message = MessageClient('JOIN', id);
+    final message = Message('JOIN', id);
     await supernode.sendPackageToMulticast(message);
   } else if (args[0] == 'nodo') {
     if (args.length < 7) {
@@ -124,12 +124,12 @@ void main(List<String> args) async {
       switch (message) {
           case 1:
             {
-              final messageRequest = MessageClient('REQUEST_LIST_FILES', []);
+              final messageRequest = Message('REQUEST_LIST_FILES', []);
               await client.sendMessageStringToSupernodo(messageRequest);
             }
             break;
           default:
-            final messageData = MessageClient('REQUEST_PEER', message);
+            final messageData = Message('REQUEST_PEER', message);
             await client.sendMessageStringToSupernodo(messageData);
         }
     });

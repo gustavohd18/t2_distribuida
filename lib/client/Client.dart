@@ -4,23 +4,9 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
-import 'package:t2_distribution_programming/ClientToServer.dart';
-import 'package:t2_distribution_programming/client/MessageClient.dart';
-
-class FilePath {
-  final String filename;
-  final dynamic path;
-  FilePath(this.filename, this.path);
-
-  FilePath.fromJson(Map<String, dynamic> json)
-      : filename = json['filename'],
-        path = json['path'];
-
-  Map<String, dynamic> toJson() => {
-        'filename': filename,
-        'path': path,
-      };
-}
+import 'package:t2_distribution_programming/data/ClientToServer.dart';
+import 'package:t2_distribution_programming/data/Message.dart';
+import 'package:t2_distribution_programming/data/FileHash.dart';
 
 class Client {
   final String id;
@@ -67,7 +53,7 @@ class Client {
         final object = String.fromCharCodes(data);
         Map<String, dynamic> decodedMessage = jsonDecode(object);
         final messageObject =
-            MessageClient(decodedMessage['message'], decodedMessage['data']);
+            Message(decodedMessage['message'], decodedMessage['data']);
 
         switch (messageObject.message) {
           case 'RESPONSE_LIST':
@@ -169,10 +155,10 @@ class Client {
     Timer.periodic(
         fiveSec,
         (Timer t) => sendMessageStringToSupernodo(
-            MessageClient('HEARTBEAT_CLIENT', id)));
+            Message('HEARTBEAT_CLIENT', id)));
   }
 
-  Future<void> sendMessageStringToSupernodo(MessageClient messageClient) async {
+  Future<void> sendMessageStringToSupernodo(Message messageClient) async {
     //vamos usar json nos objetos para envio
     var encodedMessage = jsonEncode(messageClient);
     socketClient.write(encodedMessage);
