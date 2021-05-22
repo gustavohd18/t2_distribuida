@@ -113,7 +113,7 @@ void main(List<String> args) async {
     final messageExample = MessageClient('REQUEST_LIST_FILES', []);
     await client.sendMessageStringToSupernodo(messageExample);
     await Future.delayed(Duration(seconds: 12));
-    final messageData = MessageClient('REQUEST_PEER', 'ola.txt');
+    final messageData = MessageClient('REQUEST_PEER', 'p1.pdf');
     await client.sendMessageStringToSupernodo(messageData);
     //pproblema com o terminal
     // terminalInteractive(client);

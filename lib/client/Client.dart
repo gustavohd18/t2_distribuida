@@ -66,7 +66,6 @@ class Client {
       (Uint8List data) async {
         final object = String.fromCharCodes(data);
         Map<String, dynamic> decodedMessage = jsonDecode(object);
-        print(object);
         final messageObject =
             MessageClient(decodedMessage['message'], decodedMessage['data']);
 
@@ -93,7 +92,6 @@ class Client {
                 final list = messageObject.data['files'];
                 for (var i = 0; i < list.length; i++) {
                   var hash = FileHash(list[i]['filename'], list[i]['hash']);
-                  print("Cheguei no hash ${hash.fileName} ${hash.hash}");
                   filehashList.add(hash);
                 }
                 final clientObject = ClientToServer(
@@ -103,11 +101,9 @@ class Client {
                     filehashList,
                     0);
                 print('Enviando arquivo');
-                //mock  para teste mas precisa saber como pegar o arquivo  certo para mandar tem que virda solicitacao do user
-                //pega somente a primeira posicao que vai ta com o arquivo que o usuario quer
-                final filePatch = await getPathFile(filehashList[0].hash);
-                sendFile(
-                    clientObject.ip, clientObject.availablePort, filePatch);
+                // requisitando o arquivo para o willian informando o hash dele
+                sendFile(clientObject.ip, clientObject.availablePort,
+                    filehashList[0].hash);
               }
             }
             break;
@@ -138,24 +134,17 @@ class Client {
         ' ${client.remoteAddress.address}:${client.remotePort}');
     client.listen(
       (Uint8List data) async {
-        final object = String.fromCharCodes(data);
-        Map<String, dynamic> decodedMessage = jsonDecode(object);
-        print(decodedMessage);
-        final fileObject =
-            FilePath(decodedMessage['filename'], decodedMessage['path']);
-
-        final listu8 = fileObject.path.cast<int>();
-
-        var builder = BytesBuilder(copy: false);
-        builder.add(listu8);
-        var dt = builder.takeBytes();
-        //como pegar o nome do arquivo
-        final filename = fileObject.filename;
-
-        await writeToFile(dt.buffer.asByteData(0, dt.buffer.lengthInBytes),
-            '$patchToSaveFiles/$filename');
-        //fecha o socket depois disso
-        await client.close();
+        final hash = String.fromCharCodes(data);
+        final pathFile = await getPathFile(hash);
+        String sep = Platform.isWindows ? "\\" : "/";
+        String fileName = pathFile.split(sep).last;
+        print("OLHA O NOME DO ARQUIVO: $fileName");
+        // pega os bytes do arquivo para envio
+        var bytes = await File(pathFile).openRead();
+        await client.addStream(bytes);
+        // terminei de enviar os bytes
+        // envio o nome do arquivo junto com a mensagem de finished
+        client.write('FINESHED;$fileName');
       },
 
       // handle errors
@@ -199,15 +188,30 @@ class Client {
     });
   }
 
-  void sendFile(String ipToSend, int port, String patchWithFile) async {
-    String sep = Platform.isWindows ? "\\" : "/";
-    String fileName = patchWithFile.split(sep).last;
-    print("OLHA O NOME DO ARQUIVO: $fileName");
+  void sendFile(String ipToSend, int port, String hash) async {
     final socket = await Socket.connect(ipToSend, port);
-    var bytes = await File(patchWithFile).readAsBytes();
-    var file = FilePath(fileName, bytes);
-    var encodedMessage = jsonEncode(file);
-    socket.write(encodedMessage);
+    socket.write(hash);
+    var builder = BytesBuilder(copy: false);
+
+    socket.listen((data) async {
+      try {
+        final object = String.fromCharCodes(data);
+        if (object.split(';').contains('FINESHED')) {
+          print('DOWNLOAD finalizado');
+          final fileName = object.split(';');
+          var dt = builder.takeBytes();
+          //como pegar o nome do arquivo
+          final file = File('${patchToSaveFiles}/${fileName[1]}');
+
+          final buffer = dt.buffer;
+          await file.writeAsBytesSync(
+              buffer.asUint8List(dt.offsetInBytes, dt.lengthInBytes));
+          builder.clear();
+        }
+      } finally {
+        builder.add(data);
+      }
+    });
   }
 
   Future<String> getPathFile(String hash) async {
