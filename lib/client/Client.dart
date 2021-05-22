@@ -27,12 +27,12 @@ class Client {
    * https://stackoverflow.com/questions/14268967/how-do-i-list-the-contents-of-a-directory-with-dart
    * https://stackoverflow.com/questions/57385832/flutter-compute-function-for-image-hashing/62202544#62202544
    */
-    Directory filesDir = Directory(filesPath);
+    var filesDir = Directory(filesPath);
     if (filesDir.existsSync()) {
-      List<FileHash> hashFileList = List<FileHash>();
-      List<FileSystemEntity> contents = filesDir.listSync(recursive: false);
+      var hashFileList = List<FileHash>();
+      var contents = filesDir.listSync(recursive: false);
       for (File file in contents) {
-        Digest digest = await (sha256.bind(file.openRead())).first;
+        var digest = await (sha256.bind(file.openRead())).first;
         final sep = Platform.isWindows ? "\\" : "/";
         final fileName = file.path.split(sep).last;
         final filehash = FileHash(fileName, digest.toString());
@@ -60,10 +60,8 @@ class Client {
             {
               if (messageObject.data != null) {
                 final list = messageObject.data.cast<String>();
-                print('Lista de arquivos disponiveis na rede');
                 filesComming.clear();
                 filesComming.addAll(list);
-                print(list);
               }
             }
             break;
@@ -76,8 +74,8 @@ class Client {
           case 'RESPONSE_CLIENT_WITH_DATA':
             {
               if (messageObject.data != null) {
-                //pegar o hash como retorno e chamar uma funcao para pegar ele dai
-                List<FileHash> filehashList = [];
+                //will be return just one single file 
+                var filehashList = <FileHash>[];
                 final list = messageObject.data['files'];
                 for (var i = 0; i < list.length; i++) {
                   var hash = FileHash(list[i]['filename'], list[i]['hash']);
@@ -90,7 +88,7 @@ class Client {
                     filehashList,
                     0);
                 print('Enviando Solicitação de arquivo');
-                // requisitando o arquivo para o willian informando o hash dele
+                // request file to other client using socket
                 sendFile(clientObject.ip, clientObject.availablePort,
                     filehashList[0].hash);
               }
@@ -125,14 +123,15 @@ class Client {
       (Uint8List data) async {
         final hash = String.fromCharCodes(data);
         final pathFile = await getPathFile(hash);
-        String sep = Platform.isWindows ? "\\" : "/";
-        String fileName = pathFile.split(sep).last;
+        var sep = Platform.isWindows ? "\\" : "/";
+        var fileName = pathFile.split(sep).last;
         // pega os bytes do arquivo para envio
         var bytes = await File(pathFile).openRead();
         await client.addStream(bytes);
-        // terminei de enviar os bytes
-        // envio o nome do arquivo junto com a mensagem de finished
+        // Finished send bytes 
+        // we need added a delay to send next message in a single packet
         await Future.delayed(Duration(seconds: 1));
+        // this message is used to identify all packet from data was send
         client.write('FINESHED${hash}$fileName');
       },
 
@@ -142,7 +141,7 @@ class Client {
         client.close();
       },
 
-      // handle the client closing the connection
+      // handle the client closing the connection after send all packet
       onDone: () {
         print('Dados enviados para o nodo');
         client.close();
@@ -159,7 +158,7 @@ class Client {
   }
 
   Future<void> sendMessageStringToSupernodo(Message messageClient) async {
-    //vamos usar json nos objetos para envio
+    //parser to json 
     var encodedMessage = jsonEncode(messageClient);
     socketClient.write(encodedMessage);
   }
@@ -187,12 +186,13 @@ class Client {
         print('DOWNLOAD finalizado');
         final fileName = object.split(hash);
         var dt = builder.takeBytes();
-        //como pegar o nome do arquivo
+        //get name and extension to file
         final file = File('${patchToSaveFiles}/${fileName[1]}');
 
         final buffer = dt.buffer;
         await file.writeAsBytesSync(
             buffer.asUint8List(dt.offsetInBytes, dt.lengthInBytes));
+        // close socket after save file
         await socket.close();
       } else {
         builder.add(data);
@@ -202,7 +202,7 @@ class Client {
 
   Future<String> getPathFile(String hash) async {
     if (hashAndFile[hash] != null) {
-      print('Tenho o patch do arquivo aqui ${hashAndFile[hash]}');
+      print('Recebi uma solicitação de arquivo que se encontra na pasta ${hashAndFile[hash]}');
       return hashAndFile[hash];
     } else {
       return '';
