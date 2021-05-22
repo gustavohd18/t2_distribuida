@@ -103,7 +103,7 @@ class Client {
                     messageObject.data['availablePort'],
                     filehashList,
                     0);
-                print('Enviando arquivo');
+                print('Enviando Solicitação de arquivo');
                 // requisitando o arquivo para o willian informando o hash dele
                 sendFile(clientObject.ip, clientObject.availablePort,
                     filehashList[0].hash);
@@ -157,7 +157,7 @@ class Client {
 
       // handle the client closing the connection
       onDone: () {
-        print('Conexao encerrada supernodo caiu');
+        print('Dados enviados para o nodo');
         client.close();
       },
     );
@@ -195,7 +195,6 @@ class Client {
     var builder = BytesBuilder(copy: false);
 
     socket.listen((data) async {
-      try {
         final object = String.fromCharCodes(data);
         if (object.split(';').contains('FINESHED')) {
           print('DOWNLOAD finalizado');
@@ -208,10 +207,10 @@ class Client {
           await file.writeAsBytesSync(
               buffer.asUint8List(dt.offsetInBytes, dt.lengthInBytes));
           builder.clear();
+          await socket.close();
+        } else {
+          builder.add(data);
         }
-      } finally {
-        builder.add(data);
-      }
     });
   }
 
