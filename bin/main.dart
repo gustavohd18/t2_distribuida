@@ -15,19 +15,19 @@ Future<ReceivePort> initIsolate() async {
   return isolateToMainStream;
 }
 
-// function which run in a Thread to handle with interactive from user
+// function which run in a separate thread to handle input from user
 void terminalIsolate(SendPort isolateToMainStream) {
   while (true) {
     print('=======================');
     print('Bem vindo ao FileLand');
     print('1: Visualizar arquivos disponivel para download');
-    print('2: solicitar download(Precisa passar o nome do arquivo)');
+    print('2: solicitar download (precisa passar o nome do arquivo)');
     print('=======================');
     var line = stdin.readLineSync(encoding: Encoding.getByName('utf-8'));
     var option = 0;
     try {
       option = int.parse(line.trim());
-    } catch(e) {
+    } catch (e) {
       option = 0;
     }
     switch (option) {
@@ -91,16 +91,16 @@ void main(List<String> args) async {
 
     print('Supernodo ip: $ip porta: $port id:$id');
 
-    // call all functions which will handle with clients and other servers
+    // Call all functions which will handle clients and other servers connections
     supernode.listenerServerSocket();
     supernode.listenerMulticast();
     supernode.heartbeatServer();
     supernode.incrementTimeServer();
-    supernode.removeServeWithNoResponse();
+    supernode.removeServerWithNoResponse();
     supernode.incrementTimeToClients();
     supernode.removeClientsWithNoResponse();
 
-    //send message multicast to join
+    // Send join multicast message
     final message = Message('JOIN', id);
     await supernode.sendPackageToMulticast(message);
   } else if (args[0] == 'nodo') {

@@ -12,14 +12,15 @@ class Client {
   final String id;
   final String ip;
   final int availablePort;
-  final String patchToSaveFiles;
-  List<String> files;
+  final String pathToSaveFiles;
   final Socket socketClient;
-  List<String> filesComming = [];
   final ServerSocket socketToReceiveFiles;
+  List<String> files;
+  List<String> filesComming = [];
   HashMap<String, String> hashAndFile = HashMap<String, String>();
+
   Client(this.id, this.socketClient, this.ip, this.availablePort,
-      this.socketToReceiveFiles, this.patchToSaveFiles);
+      this.socketToReceiveFiles, this.pathToSaveFiles);
 
   Future<List<FileHash>> getHash(filesPath) async {
     /*
@@ -46,7 +47,7 @@ class Client {
 
   void listenerSupernodo() async {
     print(
-        'Conetado com o supernodo: ${socketClient.remoteAddress.address}:${socketClient.remotePort}');
+        'Conetado com o supernodo: ${socketClient.remoteAddress.address}:${socketClient.remotePort}.');
 
     socketClient.listen(
       (Uint8List data) async {
@@ -70,13 +71,13 @@ class Client {
 
           case 'PROCESSING_REQUEST':
             {
-              print('Processando a lista de arquivos na rede');
+              print('Processando a lista de arquivos na rede.');
             }
             break;
           case 'RESPONSE_CLIENT_WITH_DATA':
             {
               if (messageObject.data != null) {
-                //will be return just one single file
+                // Return just one single file.
                 var filehashList = <FileHash>[];
                 final list = messageObject.data['files'];
                 for (var i = 0; i < list.length; i++) {
@@ -89,8 +90,8 @@ class Client {
                     messageObject.data['availablePort'],
                     filehashList,
                     0);
-                print('Enviando Solicitação de arquivo');
-                // request file to other client using socket
+                print('Enviando solicitação de arquivo...');
+                // Request file to another client through socket.
                 sendFile(clientObject.ip, clientObject.availablePort,
                     filehashList[0].hash);
               }
@@ -99,12 +100,12 @@ class Client {
 
           case 'REGISTER':
             {
-              print('recebido o registro');
+              print('Recebido o registro.');
             }
             break;
 
           default:
-            print('Nada mapeado');
+            print('Nada mapeado.');
         }
       },
       onError: (error) {
@@ -127,13 +128,13 @@ class Client {
         final pathFile = await getPathFile(hash);
         var sep = Platform.isWindows ? "\\" : "/";
         var fileName = pathFile.split(sep).last;
-        // pega os bytes do arquivo para envio
+        // Get bytes from file to send.
         var bytes = await File(pathFile).openRead();
         await client.addStream(bytes);
-        // Finished send bytes
-        // we need added a delay to send next message in a single packet
+        // Send bytes is finished
+        // We needed to add a delay to send next message in a single packet
         await Future.delayed(Duration(seconds: 1));
-        // this message is used to identify all packet from data was send
+        // This message is used to identify all packets from the data that was sent.
         client.write('FINESHED${hash}$fileName');
       },
 
@@ -187,13 +188,13 @@ class Client {
         print('DOWNLOAD finalizado');
         final fileName = object.split(hash);
         var dt = builder.takeBytes();
-        //get name and extension to file
-        final file = File('${patchToSaveFiles}/${fileName[1]}');
+        // Get name and extension to file.
+        final file = File('${pathToSaveFiles}/${fileName[1]}');
 
         final buffer = dt.buffer;
         await file.writeAsBytesSync(
             buffer.asUint8List(dt.offsetInBytes, dt.lengthInBytes));
-        // close socket after save file
+        // Close socket after file is saved.
         await socket.close();
       } else {
         builder.add(data);
@@ -204,7 +205,7 @@ class Client {
   Future<String> getPathFile(String hash) async {
     if (hashAndFile[hash] != null) {
       print(
-          'Recebi uma solicitação de arquivo que se encontra na pasta ${hashAndFile[hash]}');
+          'Recebi uma solicitação de arquivo que se encontra na pasta ${hashAndFile[hash]}.');
       return hashAndFile[hash];
     } else {
       return '';

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:t2_distribution_programming/data/ClientToServer.dart';
@@ -623,7 +622,7 @@ class Server {
     Timer.periodic(fiveSec, (Timer t) => incrementServers());
   }
 
-  void removeServeWithNoResponse() async {
+  void removeServerWithNoResponse() async {
     const sec = Duration(seconds: 15);
     Timer.periodic(sec, (Timer t) => removeServers());
   }
